@@ -41,21 +41,39 @@ set -euo pipefail
 ALLOY_VERSION_EXPECTED="1.6.0"
 NODE_EXPORTER_PORT=9100
 NODE_EXPORTER_EMBEDDED_PORT=17935   # exporter unix embebido en Alloy (prometheus.exporter.unix)
-ALLOY_HTTP_PORT=12345        # puerto HTTP de Alloy (métricas propias + UI)
+# ALLOY_HTTP_PORT: 12345 es el default de Alloy, pero este despliegue lo
+# sobreescribe vía CUSTOM_ARGS="--server.http.listen-addr=0.0.0.0:17935" en
+# /etc/sysconfig/alloy (confirmado en campo el 2026-07-14) — es el MISMO
+# puerto que NODE_EXPORTER_EMBEDDED_PORT, porque Alloy solo corre un único
+# servidor HTTP (self-metrics, UI y API de componentes conviven en él).
+ALLOY_HTTP_PORT=17935        # puerto HTTP real de Alloy (métricas propias + UI + API de componentes)
 ALLOY_GRPC_PORT=4317         # OpenTelemetry gRPC (OTLP)
 
-ALLOY_CONFIG_DIR="/opt/alloy"
-ALLOY_DATA_DIR="/data/alloy"
-ALLOY_LOG_DIR="/var/log/alloy"
+# Rutas reales confirmadas en campo el 2026-07-14 en pbigd-plat-apps01, a partir
+# de /etc/sysconfig/alloy (CONFIG_FILE) y de `systemctl cat alloy` (--storage.path
+# en ExecStart). Antes apuntaban a las rutas de plan (/opt/alloy, /data/alloy,
+# /var/log/alloy), que nunca existieron en el despliegue real — de ahí los WARN.
+# Alloy no escribe a un directorio de logs propio: su log va a journald
+# (ver check en MÓDULO 4 más abajo), por eso no hay ALLOY_LOG_DIR.
+ALLOY_CONFIG_DIR="/etc/alloy"
+ALLOY_DATA_DIR="/var/lib/alloy/data"
 
 # Destino del stack de observabilidad (donde Alloy envía métricas/logs).
 # Los nodos DR (hostname con sufijo -cont) reportan al Prometheus LOCAL
 # de pbigd-plat-obs01-cont, no al pbigd-plat-obs01 de Principal.
+#
+# NOTA: "pbigd-plat-obs01" es la etiqueta del plan (hostnames.txt), pero el
+# nombre real registrado en el DNS interno de la Cooperativa (jardinazuayo.fin.ec)
+# es "escila" — confirmado en campo el 2026-07-14 (IP 172.17.210.89). Se usa
+# el FQDN real aquí porque el hostname de plan nunca fue dado de alta en DNS.
+# Pendiente: confirmar el nombre real del nodo DR (pbigd-plat-obs01-cont) antes
+# de reemplazarlo aquí también — mientras tanto puede sobreescribirse al vuelo
+# con la variable de entorno OBS_HOST.
 if [[ -z "${OBS_HOST:-}" ]]; then
   if [[ "$(hostname -s 2>/dev/null || hostname)" == *-cont ]]; then
-    OBS_HOST="pbigd-plat-obs01-cont"
+    OBS_HOST="pbigd-plat-obs01-cont"   # TODO: confirmar nombre DNS real (ver nota arriba)
   else
-    OBS_HOST="pbigd-plat-obs01"
+    OBS_HOST="escila.jardinazuayo.fin.ec"
   fi
 fi
 PROMETHEUS_PORT=9090
@@ -72,9 +90,9 @@ THIS_HOST=$(hostname -s 2>/dev/null || hostname)
 LOG_FILE="/tmp/validate_obs_agents_${THIS_HOST}_$(date +%Y%m%d_%H%M%S).log"
 
 log()  { echo -e "$*" | tee -a "$LOG_FILE"; }
-ok()   { log "${GREEN}  [OK]${NC}  $*";  ((PASS++)); }
-fail() { log "${RED}  [FAIL]${NC} $*"; ((FAIL++)); }
-warn() { log "${YELLOW}  [WARN]${NC} $*"; ((WARN++)); }
+ok()   { log "${GREEN}  [OK]${NC}  $*";  PASS=$((PASS+1)); }
+fail() { log "${RED}  [FAIL]${NC} $*"; FAIL=$((FAIL+1)); }
+warn() { log "${YELLOW}  [WARN]${NC} $*"; WARN=$((WARN+1)); }
 info() { log "${CYAN}  [INFO]${NC} $*"; }
 section() {
   log "\n${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -154,15 +172,60 @@ else
   fail "node-exporter NO está corriendo (ni embebido :$NODE_EXPORTER_EMBEDDED_PORT ni standalone :$NODE_EXPORTER_PORT)"
 fi
 
-if [[ -n "$NE_PORT" ]]; then
-  # 2.2 Endpoint /metrics responde
+if [[ "$NE_MODE" == "embebido en Alloy" ]]; then
+  # En modo embebido, Alloy 1.17.x NO re-expone las métricas node_* en un
+  # /metrics local con formato Prometheus estándar (confirmado en campo: ese
+  # puerto solo sirve las métricas propias de Alloy, alloy_*). El componente
+  # prometheus.exporter.unix alimenta directo a scrape→relabel→remote_write
+  # sin dejar rastro en /metrics. La validación LOCAL correcta es la API de
+  # componentes de Alloy (/api/v0/web/components), que reporta el estado real
+  # ("health.state") de cada bloque del pipeline sin depender de red hacia
+  # Prometheus central.
+  COMPONENTS_JSON=$(curl -sf --max-time 5 "http://localhost:${NE_PORT}/api/v0/web/components" 2>/dev/null || echo "")
+
+  if [[ -n "$COMPONENTS_JSON" ]] && command -v python3 &>/dev/null; then
+    ok "API de componentes de Alloy responde (:$NE_PORT/api/v0/web/components)"
+
+    UNIX_HEALTH=$(echo "$COMPONENTS_JSON" | python3 -c \
+      "import sys,json
+data=json.load(sys.stdin)
+m=[c for c in data if c.get('name')=='prometheus.exporter.unix']
+print(m[0]['health']['state'] if m else 'not_found')" 2>/dev/null || echo "parse_error")
+
+    case "$UNIX_HEALTH" in
+      healthy)    ok   "Componente prometheus.exporter.unix: healthy (recolectando métricas de host)" ;;
+      not_found)  fail "No se encontró ningún componente prometheus.exporter.unix en Alloy — métricas de host NO se están recolectando" ;;
+      *)          warn "Componente prometheus.exporter.unix en estado '$UNIX_HEALTH' (esperado: healthy)" ;;
+    esac
+
+    RW_HEALTH=$(echo "$COMPONENTS_JSON" | python3 -c \
+      "import sys,json
+data=json.load(sys.stdin)
+m=[c for c in data if c.get('name')=='prometheus.remote_write']
+print(m[0]['health']['state'] if m else 'not_found')" 2>/dev/null || echo "parse_error")
+
+    case "$RW_HEALTH" in
+      healthy)    ok   "Componente prometheus.remote_write: healthy (enviando métricas al Prometheus central)" ;;
+      not_found)  warn "No se encontró componente prometheus.remote_write — métricas locales, pero sin envío a central" ;;
+      *)          warn "Componente prometheus.remote_write en estado '$RW_HEALTH' (esperado: healthy)" ;;
+    esac
+
+    info "Nota: no se listan métricas node_* individuales — en este modo no existen en ningún endpoint local; la salud de componentes de arriba es la validación local equivalente. Para confirmar arribo end-to-end, consultar Prometheus central (ver Módulo 5)."
+  else
+    warn "No se pudo consultar la API de componentes de Alloy (:$NE_PORT/api/v0/web/components) — verificar que esta versión de Alloy la soporte"
+  fi
+
+  info "Versión node-exporter: N/A (modo embebido — la versión relevante es la de Alloy, ver MÓDULO 3)"
+
+elif [[ -n "$NE_PORT" ]]; then
+  # Modo standalone: un node_exporter real expone /metrics en formato
+  # Prometheus estándar — aquí sí aplica el grep de texto plano.
   NE_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
     "http://localhost:${NE_PORT}/metrics" 2>/dev/null || echo "000")
   [[ "$NE_HTTP" == "200" ]] \
     && ok "Endpoint /metrics responde ($NE_MODE, :$NE_PORT): HTTP $NE_HTTP" \
     || fail "Endpoint /metrics no responde ($NE_MODE, :$NE_PORT): HTTP $NE_HTTP"
 
-  # 2.3 Métricas clave presentes
   if [[ "$NE_HTTP" == "200" ]]; then
     METRICS_RAW=$(curl -sf --max-time 5 "http://localhost:${NE_PORT}/metrics" 2>/dev/null || echo "")
     for METRIC in "node_cpu_seconds_total" "node_memory_MemTotal_bytes" \
@@ -174,18 +237,12 @@ if [[ -n "$NE_PORT" ]]; then
     done
   fi
 
-  # 2.4 Versión de node-exporter (solo aplica si el build_info existe;
-  # el exporter embebido en Alloy puede no exponer esta métrica)
   NE_VERSION=$(curl -sf --max-time 5 "http://localhost:${NE_PORT}/metrics" 2>/dev/null \
     | grep 'node_exporter_build_info' | grep -oP 'version="\K[^"]+' | head -1 || echo "unknown")
   info "Versión node-exporter: $NE_VERSION"
-  if [[ "$NE_VERSION" != "unknown" ]]; then
-    ok "Versión node-exporter identificada: $NE_VERSION"
-  elif [[ "$NE_MODE" == "embebido en Alloy" ]]; then
-    info "Sin métrica node_exporter_build_info (esperado en modo embebido — la versión es la de Alloy)"
-  else
-    warn "No se pudo identificar versión de node-exporter"
-  fi
+  [[ "$NE_VERSION" != "unknown" ]] \
+    && ok "Versión node-exporter identificada: $NE_VERSION" \
+    || warn "No se pudo identificar versión de node-exporter"
 fi
 
 # 2.5 Servicio systemd — solo aplica al modo standalone; en modo embebido
@@ -219,9 +276,11 @@ if [[ -n "$ALLOY_BIN" ]]; then
   ok "Binario Alloy encontrado: $ALLOY_BIN"
   ALLOY_VER=$("$ALLOY_BIN" --version 2>/dev/null | grep -oP 'v\K[\d.]+' | head -1 || echo "unknown")
   info "Versión Alloy: $ALLOY_VER"
+  # La versión homologada (1.6.0) es una recomendación, no un requisito duro
+  # de compatibilidad — por eso una versión distinta es INFO, no WARN.
   [[ "$ALLOY_VER" == "$ALLOY_VERSION_EXPECTED"* ]] \
     && ok "Versión Alloy correcta: $ALLOY_VER" \
-    || warn "Versión Alloy: detectada='$ALLOY_VER' esperada='$ALLOY_VERSION_EXPECTED'"
+    || info "Versión Alloy: detectada='$ALLOY_VER', recomendada='$ALLOY_VERSION_EXPECTED' (no bloqueante)"
 elif pgrep -x "alloy" &>/dev/null; then
   ok "Proceso alloy corriendo (binario en ruta no estándar)"
 else
@@ -259,24 +318,41 @@ ALLOY_METRICS_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
   || warn "Endpoint /metrics de Alloy no accesible en puerto $ALLOY_HTTP_PORT"
 
 # 3.6 Configuración de Alloy
-ALLOY_CFG_FILES=$(find "$ALLOY_CONFIG_DIR" -name "*.alloy" -o -name "config.alloy" \
-  -o -name "*.river" 2>/dev/null | head -5 || echo "")
-if [[ -n "$ALLOY_CFG_FILES" ]]; then
-  ok "Archivo(s) de configuración Alloy encontrado(s)"
-  while IFS= read -r CFG; do
-    info "  Configuración: $CFG"
-    # Verificar que apunta al stack de observabilidad
-    grep -q "prometheus\|loki\|$OBS_HOST\|9090\|3100" "$CFG" 2>/dev/null \
-      && ok "    ↳ Referencia al stack de observabilidad ($OBS_HOST) detectada en configuración" \
-      || warn "    ↳ No se detecta referencia explícita al stack de observabilidad ($OBS_HOST)"
-  done <<< "$ALLOY_CFG_FILES"
+# El nombre real y ruta confirmados en campo (CONFIG_FILE en /etc/sysconfig/alloy)
+# son $ALLOY_CONFIG_DIR/config.alloy. Se prueba primero con un stat directo
+# ([[ -f ]]), que solo requiere permiso de TRÁNSITO (x) sobre el directorio
+# padre — a diferencia de `find`, que necesita permiso de LISTADO (r) sobre
+# el propio directorio y por eso fallaba en silencio cuando /etc/alloy no es
+# legible por el usuario que corre el script (mismo caso ya visto en MÓDULO 4).
+ALLOY_KNOWN_CFG="${ALLOY_CONFIG_DIR}/config.alloy"
+if [[ -f "$ALLOY_KNOWN_CFG" ]]; then
+  ok "Archivo de configuración encontrado: $ALLOY_KNOWN_CFG"
+  if CFG_CONTENT=$(cat "$ALLOY_KNOWN_CFG" 2>/dev/null); then
+    echo "$CFG_CONTENT" | grep -q "prometheus\|loki\|$OBS_HOST\|9090\|3100" \
+      && ok "  ↳ Referencia al stack de observabilidad ($OBS_HOST) detectada en configuración" \
+      || warn "  ↳ No se detecta referencia explícita al stack de observabilidad ($OBS_HOST)"
+  else
+    info "  ↳ Archivo existe pero su contenido no es legible por este usuario (permisos) — no se puede verificar la referencia al stack; no es evidencia de que falte"
+  fi
 else
-  # Buscar en rutas alternativas
-  ALT_CFG=$(find /etc/alloy /etc/grafana-agent /opt/alloy \
-    -name "*.alloy" -o -name "*.river" -o -name "config*" 2>/dev/null | head -3 || echo "")
-  [[ -n "$ALT_CFG" ]] \
-    && { ok "Configuración Alloy encontrada en ruta alternativa"; info "  $ALT_CFG"; } \
-    || fail "No se encontró archivo de configuración de Alloy"
+  # Fallback: puede que el nombre de archivo real difiera del confirmado en
+  # pbigd-plat-apps01 — buscar por extensión antes de declarar FAIL. Si esto
+  # también falla por falta de permiso de listado, el resultado es el mismo
+  # "no encontrado" que antes, pero ya se agotó la vía más confiable primero.
+  ALLOY_CFG_FILES=$(find "$ALLOY_CONFIG_DIR" -name "*.alloy" -o -name "*.river" 2>/dev/null | head -5 || true)
+  if [[ -n "$ALLOY_CFG_FILES" ]]; then
+    ok "Archivo(s) de configuración Alloy encontrado(s) (nombre no estándar)"
+    info "  $ALLOY_CFG_FILES"
+  else
+    ALT_CFG=$(find /etc/alloy /etc/grafana-agent /opt/alloy \
+      -name "*.alloy" -o -name "*.river" -o -name "config*" 2>/dev/null | head -3 || true)
+    if [[ -n "$ALT_CFG" ]]; then
+      ok "Configuración Alloy encontrada en ruta alternativa"
+      info "  $ALT_CFG"
+    else
+      warn "No se pudo confirmar el archivo de configuración de Alloy ($ALLOY_KNOWN_CFG no accesible ni por stat ni por listado) — puede ser falta de permisos de $USER, verificar con sudo antes de escalar como hallazgo real"
+    fi
+  fi
 fi
 
 # 3.7 Servicio systemd Alloy
@@ -298,46 +374,82 @@ $ALLOY_SVC_ACTIVE || warn "No se detectó servicio systemd de Alloy (verificar n
 # ===========================================================================
 section "MÓDULO 4 · Directorios y persistencia de Alloy"
 
-for DIR in "$ALLOY_CONFIG_DIR" "$ALLOY_DATA_DIR" "$ALLOY_LOG_DIR"; do
+for DIR in "$ALLOY_CONFIG_DIR" "$ALLOY_DATA_DIR"; do
   if [[ -d "$DIR" ]]; then
     ok "Directorio existe: $DIR"
     touch "$DIR/.write_test" 2>/dev/null && rm -f "$DIR/.write_test" \
       && ok "  ↳ Escritura OK" \
-      || warn "  ↳ Sin permisos de escritura"
+      || warn "  ↳ Sin permisos de escritura (esperado en $ALLOY_CONFIG_DIR — la config puede traer credenciales de remote_write)"
   else
     warn "Directorio no encontrado: $DIR (puede estar en ruta alternativa)"
   fi
 done
 
-# WAL (Write-Ahead Log) de Alloy para métricas — evita pérdida en reinicios
-WAL_DIR=$(find /data/alloy /var/lib/alloy /opt/alloy -name "wal" -type d 2>/dev/null | head -1 || echo "")
+# Logs de Alloy — no hay ALLOY_LOG_DIR: este despliegue no escribe logs a un
+# directorio propio (no vino con --log.file en ExecStart), va todo a journald.
+info "Verificando logs de Alloy en journald..."
+JOURNAL_LOG_COUNT=$(journalctl -u alloy --no-pager -n 1 2>/dev/null | wc -l)
+[[ "$JOURNAL_LOG_COUNT" -gt 0 ]] \
+  && ok "Logs de Alloy disponibles vía journald (journalctl -u alloy)" \
+  || warn "Sin logs recientes de Alloy en journald — verificar 'journalctl -u alloy'"
+
+# WAL (Write-Ahead Log) de Alloy para métricas — evita pérdida en reinicios.
+# Nota: si $ALLOY_DATA_DIR no es legible por el usuario que corre este script
+# (mismo caso de permisos que $ALLOY_CONFIG_DIR), `find` fallará en silencio
+# y esto dará WARN aunque el WAL exista — no asumir que "no encontrado" es
+# igual a "no existe" sin antes descartar un problema de permisos.
+WAL_DIR=$(find "$ALLOY_DATA_DIR" /var/lib/alloy /data/alloy /opt/alloy -name "wal" -type d 2>/dev/null | head -1 || true)
 [[ -n "$WAL_DIR" ]] \
   && ok "WAL de Alloy encontrado: $WAL_DIR (métricas persisten en reinicios)" \
-  || warn "WAL de Alloy no encontrado — puede perder métricas no enviadas al reiniciar"
+  || warn "WAL de Alloy no encontrado en $ALLOY_DATA_DIR — puede ser que no exista, o que el usuario actual no tenga permisos para leer ahí (verificar con sudo antes de escalar como hallazgo real)"
 
 # ===========================================================================
 # MÓDULO 5 – Conectividad hacia el stack de observabilidad
 # ===========================================================================
 section "MÓDULO 5 · Conectividad hacia $OBS_HOST (stack observabilidad)"
 
-info "Verificando acceso a Prometheus en $OBS_HOST:$PROMETHEUS_PORT"
-PROM_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
-  "http://${OBS_HOST}:${PROMETHEUS_PORT}/-/healthy" 2>/dev/null || echo "000")
-[[ "$PROM_HTTP" == "200" ]] \
-  && ok "Prometheus alcanzable desde $THIS_HOST: HTTP $PROM_HTTP" \
-  || warn "Prometheus no alcanzable en $OBS_HOST:$PROMETHEUS_PORT (HTTP $PROM_HTTP)"
+# 5.0 Resolución de nombre — se verifica ANTES de cualquier curl/nc, porque un
+# fallo de DNS y un servicio caído producen el mismo síntoma superficial
+# ("no alcanzable") pero tienen causa raíz y acción correctiva totalmente
+# distintas. Sin este check, un problema de DNS aparece disfrazado de 3
+# WARNs independientes (Prometheus, Loki, OTLP) en vez de señalarse como
+# la causa común única que realmente es.
+info "Verificando resolución DNS de $OBS_HOST..."
+# || true: si getent no resuelve el host, su fallo se propaga como el status
+# del pipeline completo (pipefail) aunque awk/head terminen bien — sin este
+# guard, set -e mataría el script aquí mismo en vez de dejar que el if/else
+# de abajo maneje el caso "no resuelve".
+OBS_HOST_IP=$(getent hosts "$OBS_HOST" 2>/dev/null | awk '{print $1}' | head -1 || true)
+if [[ -n "$OBS_HOST_IP" ]]; then
+  ok "DNS resuelve $OBS_HOST → $OBS_HOST_IP"
+  OBS_DNS_OK=true
+else
+  fail "DNS NO resuelve '$OBS_HOST' desde $THIS_HOST — bloquea TODO el envío a observabilidad (Prometheus, Loki, OTLP), aunque los servicios estén sanos. Corregir agregando el registro en el DNS interno (o en /etc/hosts) antes de investigar los servicios."
+  OBS_DNS_OK=false
+fi
 
-info "Verificando acceso a Loki en $OBS_HOST:$LOKI_PORT"
-LOKI_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
-  "http://${OBS_HOST}:${LOKI_PORT}/ready" 2>/dev/null || echo "000")
-[[ "$LOKI_HTTP" == "200" ]] \
-  && ok "Loki alcanzable desde $THIS_HOST: HTTP $LOKI_HTTP" \
-  || warn "Loki no alcanzable en $OBS_HOST:$LOKI_PORT (HTTP $LOKI_HTTP) — logs no centralizados"
+if $OBS_DNS_OK; then
+  info "Verificando acceso a Prometheus en $OBS_HOST:$PROMETHEUS_PORT"
+  PROM_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+    "http://${OBS_HOST}:${PROMETHEUS_PORT}/-/healthy" 2>/dev/null || echo "000")
+  [[ "$PROM_HTTP" == "200" ]] \
+    && ok "Prometheus alcanzable desde $THIS_HOST: HTTP $PROM_HTTP" \
+    || warn "DNS resuelve, pero Prometheus no responde en $OBS_HOST:$PROMETHEUS_PORT (HTTP $PROM_HTTP) — revisar el servicio o firewall, no el DNS"
 
-# Puerto OTLP gRPC
-nc -z -w 3 "$OBS_HOST" 4317 2>/dev/null \
-  && ok "OTLP gRPC (4317) alcanzable en $OBS_HOST" \
-  || warn "OTLP gRPC (4317) no alcanzable en $OBS_HOST"
+  info "Verificando acceso a Loki en $OBS_HOST:$LOKI_PORT"
+  LOKI_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+    "http://${OBS_HOST}:${LOKI_PORT}/ready" 2>/dev/null || echo "000")
+  [[ "$LOKI_HTTP" == "200" ]] \
+    && ok "Loki alcanzable desde $THIS_HOST: HTTP $LOKI_HTTP" \
+    || warn "DNS resuelve, pero Loki no responde en $OBS_HOST:$LOKI_PORT (HTTP $LOKI_HTTP) — logs no centralizados; revisar el servicio o firewall, no el DNS"
+
+  # Puerto OTLP gRPC
+  nc -z -w 3 "$OBS_HOST" 4317 2>/dev/null \
+    && ok "OTLP gRPC (4317) alcanzable en $OBS_HOST" \
+    || warn "DNS resuelve, pero OTLP gRPC (4317) no responde en $OBS_HOST — revisar el servicio o firewall, no el DNS"
+else
+  warn "Prometheus/Loki/OTLP omitidos — sin resolución DNS de $OBS_HOST no tiene sentido probar puertos individuales (ver FAIL de arriba)"
+fi
 
 # ===========================================================================
 # MÓDULO 6 – Validación de recolección activa
@@ -360,19 +472,24 @@ if [[ "$ALLOY_METRICS_HTTP" == "200" ]]; then
     || warn "No se detectó actividad de escritura a Loki (puede ser normal si Loki es opcional)"
 fi
 
-# Verificar la fuente de métricas de nodo en la config de Alloy: en modo
-# embebido, Alloy genera las métricas él mismo (prometheus.exporter.unix),
-# no las "scrapea" de un node-exporter externo en :9100.
+# Verificar la fuente de métricas de nodo: en modo embebido, Alloy genera las
+# métricas él mismo (prometheus.exporter.unix), no las "scrapea" de un
+# node-exporter externo en :9100.
 if [[ "${NE_MODE:-}" == "embebido en Alloy" ]]; then
-  ALLOY_HAS_UNIX_EXPORTER=false
-  for CFG in $(find /etc/alloy /opt/alloy /etc/grafana-agent \
-    -name "*.alloy" -o -name "*.river" 2>/dev/null); do
-    grep -q "prometheus.exporter.unix\|exporter.unix" "$CFG" 2>/dev/null \
-      && ALLOY_HAS_UNIX_EXPORTER=true && break
-  done
-  $ALLOY_HAS_UNIX_EXPORTER \
-    && ok "Alloy configurado con exporter.unix embebido (node-exporter :$NODE_EXPORTER_EMBEDDED_PORT)" \
-    || warn "No se detecta el componente exporter.unix en la config de Alloy pese a estar el puerto $NODE_EXPORTER_EMBEDDED_PORT activo"
+  # Reutiliza $COMPONENTS_JSON ya obtenido en el MÓDULO 2 (misma sesión de
+  # script, no subshell). Antes este check hacía grep sobre archivos de
+  # config en /etc/alloy, que requiere permiso de LISTADO sobre ese
+  # directorio — el mismo permiso que ya confirmamos que falta para
+  # $ALLOY_CONFIG_DIR (MÓDULO 3.6/4), por eso daba WARN aunque el componente
+  # sí existiera (confirmado por la API en MÓDULO 2). La API de componentes
+  # no tiene ese problema porque no depende de leer archivos en disco.
+  if [[ -n "${COMPONENTS_JSON:-}" ]]; then
+    [[ "${UNIX_HEALTH:-}" == "healthy" ]] \
+      && ok "Alloy configurado con exporter.unix embebido y healthy (node-exporter :$NODE_EXPORTER_EMBEDDED_PORT) — confirmado vía API de componentes" \
+      || warn "Componente exporter.unix no confirmado como healthy vía API de componentes (ver detalle en MÓDULO 2)"
+  else
+    warn "No se pudo confirmar el componente exporter.unix — API de componentes no disponible en MÓDULO 2"
+  fi
 else
   ALLOY_SCRAPES_NE=false
   for CFG in $(find /etc/alloy /opt/alloy /etc/grafana-agent \

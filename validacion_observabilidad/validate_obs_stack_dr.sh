@@ -65,9 +65,9 @@ THIS_HOST=$(hostname -s 2>/dev/null || hostname)
 LOG_FILE="/tmp/validate_obs_dr_$(date +%Y%m%d_%H%M%S).log"
 
 log()     { echo -e "$*" | tee -a "$LOG_FILE"; }
-ok()      { log "${GREEN}  [OK]${NC}  $*";  ((PASS++)); }
-fail()    { log "${RED}  [FAIL]${NC} $*"; ((FAIL++)); }
-warn()    { log "${YELLOW}  [WARN]${NC} $*"; ((WARN++)); }
+ok()      { log "${GREEN}  [OK]${NC}  $*";  PASS=$((PASS+1)); }
+fail()    { log "${RED}  [FAIL]${NC} $*"; FAIL=$((FAIL+1)); }
+warn()    { log "${YELLOW}  [WARN]${NC} $*"; WARN=$((WARN+1)); }
 info()    { log "${CYAN}  [INFO]${NC} $*"; }
 dr()      { log "${MAGENTA}  [DR]${NC}  $*"; }
 section() {
@@ -420,19 +420,25 @@ done
 # ===========================================================================
 section "MÓDULO 9 · Conectividad con DC Principal (referencia)"
 
-dr "pbigd-plat-obs01-cont opera de forma autónoma en contingencia."
-dr "La conectividad con pbigd-plat-obs01 solo es necesaria post-recuperación."
+# OBS1_HOST: "pbigd-plat-obs01" es la etiqueta del plan (hostnames.txt), pero
+# el nombre real registrado en el DNS interno (jardinazuayo.fin.ec) es "escila"
+# — confirmado en campo el 2026-07-14 (IP 172.17.210.89). El hostname de plan
+# nunca fue dado de alta en DNS, por eso se usa el FQDN real aquí.
+OBS1_HOST="escila.jardinazuayo.fin.ec"
 
-OBS1_PING=$(ping -c 1 -W 2 "pbigd-plat-obs01" &>/dev/null && echo "ok" || echo "fail")
+dr "pbigd-plat-obs01-cont opera de forma autónoma en contingencia."
+dr "La conectividad con el Principal ($OBS1_HOST) solo es necesaria post-recuperación."
+
+OBS1_PING=$(ping -c 1 -W 2 "$OBS1_HOST" &>/dev/null && echo "ok" || echo "fail")
 if [[ "$OBS1_PING" == "ok" ]]; then
-  info "pbigd-plat-obs01 (DC Principal) alcanzable — posible recuperación en curso"
+  info "$OBS1_HOST (DC Principal) alcanzable — posible recuperación en curso"
   OBS1_PROM=$(curl -sf --max-time 3 -o /dev/null -w "%{http_code}" \
-    "http://pbigd-plat-obs01:${PROMETHEUS_PORT}/-/healthy" 2>/dev/null || echo "000")
+    "http://${OBS1_HOST}:${PROMETHEUS_PORT}/-/healthy" 2>/dev/null || echo "000")
   [[ "$OBS1_PROM" == "200" ]] \
-    && info "  Prometheus en pbigd-plat-obs01 accesible — considerar migración de tráfico" \
-    || info "  Prometheus en pbigd-plat-obs01 no responde (puede estar en recuperación)"
+    && info "  Prometheus en $OBS1_HOST accesible — considerar migración de tráfico" \
+    || info "  Prometheus en $OBS1_HOST no responde (puede estar en recuperación)"
 else
-  info "pbigd-plat-obs01 no alcanzable (esperado en contingencia activa)"
+  info "$OBS1_HOST no alcanzable (esperado en contingencia activa)"
   ok "pbigd-plat-obs01-cont operando correctamente en modo standalone"
 fi
 

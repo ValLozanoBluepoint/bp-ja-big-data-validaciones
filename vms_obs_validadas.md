@@ -1,0 +1,39 @@
+## PRINCIPAL
+
+| Host | Validado |
+|-|-|
+| pbigd-kaf01 | [] |
+| pbigd-kaf02 | [] |
+| pbigd-kaf03 | [] |
+| pbigd-stg01 | [] |
+| pbigd-stg02 | [] |
+| pbigd-stg03 | [] |
+| pbigd-dlh01 | [] |
+| pbigd-dlh02 | [] |
+| pbigd-dlh03 | [] |
+| pbigd-proc01 | [] |
+| pbigd-proc02 | [] |
+| pbigd-proc03 | [] |
+| pbigd-plat-apps01 | [] |
+| pbigd-bd-plat-apps01 | [] |
+| pbigd-plat-obs01 | [] |
+
+
+## DR
+
+| Host | Validado |
+| |-|-| | [] |
+| pbigd-kaf01-cont | [] |
+| pbigd-kaf02-cont | [] |
+| pbigd-kaf03-cont | [] |
+| pbigd-stg01-cont | [] |
+| pbigd-stg02-cont | [] |
+| pbigd-stg03-cont | [] |
+| pbigd-dlh01-cont | [] |
+| pbigd-dlh02-cont | [] |
+| pbigd-dlh03-cont | [] |
+| pbigd-proc01-cont | [] |
+| pbigd-proc02-cont | [] |
+| pbigd-plat-apps01-cont | [] |
+| pbigd-bd-plat-apps01-cont | [] |
+| pbigd-plat-obs01-cont | [] |

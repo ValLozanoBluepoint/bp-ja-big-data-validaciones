@@ -95,9 +95,9 @@ THIS_HOST=$(hostname -s 2>/dev/null || hostname)
 LOG_FILE="/tmp/validate_obs_stack_principal_$(date +%Y%m%d_%H%M%S).log"
 
 log()     { echo -e "$*" | tee -a "$LOG_FILE"; }
-ok()      { log "${GREEN}  [OK]${NC}  $*";  ((PASS++)); }
-fail()    { log "${RED}  [FAIL]${NC} $*"; ((FAIL++)); }
-warn()    { log "${YELLOW}  [WARN]${NC} $*"; ((WARN++)); }
+ok()      { log "${GREEN}  [OK]${NC}  $*";  PASS=$((PASS+1)); }
+fail()    { log "${RED}  [FAIL]${NC} $*"; FAIL=$((FAIL+1)); }
+warn()    { log "${YELLOW}  [WARN]${NC} $*"; WARN=$((WARN+1)); }
 info()    { log "${CYAN}  [INFO]${NC} $*"; }
 opt()     { log "${BLUE}  [OPT]${NC}  $*"; }   # componente opcional
 section() {
