@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Kafka DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-fail{background:#f7d6d6;color:#8a1f1f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Clúster Kafka — Backbone de eventos (KRaft, sin Zookeeper)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Kafka DR (Datacenter Alterno)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-kaf01-cont</code> · <code>pbigd-kaf02-cont</code> · <code>pbigd-kaf03-cont</code> (rol: broker KRaft, mismo rol en los 3)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>No verificable — sin contenedor Kafka activo en ningún nodo DR (esperada: 4.0.1, igual que Principal)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.2 (Red Quartz) · Podman 5.8.2 · systemd — capa de host confirmada; runtime de Kafka no verificable</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>09 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-fail">✖ NO APTO / RECHAZADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se realizó la validación de la implementación del Clúster Kafka DR (Datacenter Alterno) del proyecto Big
+Data de la Cooperativa Jardín Azuayo (proyecto Bluepoint). La validación se ejecutó el 09 de julio de 2026
+alrededor de las 16:28 en los 3 nodos DR (<code>pbigd-kaf01-cont</code>, <code>pbigd-kaf02-cont</code>,
+<code>pbigd-kaf03-cont</code>) mediante el script <code>validate_kafka_dr.sh</code>, cubriendo 8 módulos de
+verificación con 34 puntos de control por nodo (102 en total). El diseño del proyecto establece que Kafka
+no reduce capacidad en DR — a diferencia de Flink y MinIO — por ser el punto de entrada crítico del flujo
+de datos; en consecuencia, el script exige quórum 3/3 y trata como FAIL condiciones que en Principal serían
+solo advertencia.</p>
+
+<p>El resultado es que <b>Kafka no está desplegado en el datacenter alterno</b>: no hay ningún contenedor
+Kafka corriendo en ninguno de los 3 nodos, los directorios de datos y logs no existen, y los puertos 9092/9093
+no escuchan en ningún nodo — el quórum DR es 0/3. La capa de host subyacente (sistema operativo, Podman,
+systemd, NTP, red entre nodos DR, recursos de cómputo equivalentes a Principal, y el agente de observabilidad
+Alloy) sí está correctamente aprovisionada en los 3 nodos, lo que indica que el bloqueo es exclusivamente el
+despliegue del contenedor Kafka, no la infraestructura base. El clúster DR no está listo para asumir tráfico
+en un escenario de contingencia.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">36</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">27</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">39</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Los 3 nodos DR cumplen el mismo rol (broker KRaft) y ejecutan el mismo módulo de checks. Los resultados
+fueron <b>idénticos en los 3 nodos</b> — el estado "caído" es uniforme, no aislado a un solo nodo. Las
+verificaciones de conectividad entre pares (sección 4.3 del script) se muestran consolidadas en una sola
+fila por tipo de chequeo, dado que las 2 combinaciones nodo–vecino evaluadas por cada nodo resultaron
+uniformes dentro de cada tipo.</p>
+
+<table width="680">
+<tr><th width="330">Verificación</th><th>pbigd-kaf01-cont</th><th>pbigd-kaf02-cont</th><th>pbigd-kaf03-cont</th></tr>
+<tr><td>SO: Rocky Linux 10.2 (Red Quartz)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Kernel 6.12.0-124.40.1.el10_1.x86_64</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Podman ≥5.x (5.8.2 instalado)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>systemd: running</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Naming convention nodo DR (pbigd-kaf&lt;NN&gt;-cont)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>RAM equivalente al Principal (7 GB, spec 8 GB)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>vCPU equivalente al Principal (4)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>/data/kafka existe</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>/var/log/kafka existe</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Partición /data independiente montada</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>KAFKA_HOME dentro del contenedor</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Unidad systemd con nombre 'kafka'</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Contenedor Podman Kafka corriendo</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Naming convention del contenedor</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Política de reinicio del contenedor</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Puerto 9092 (broker/client) escuchando localmente</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Puerto 9093 (controller KRaft) escuchando localmente</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Ping a los otros 2 nodos DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>TCP 9092 a los otros 2 nodos DR</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>TCP 9093 (controller) a los otros 2 nodos DR</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Validación funcional (KRaft / topics)</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Particiones sub-replicadas</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>TCP broker port (9092) en cada nodo del clúster DR</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Nodos del clúster DR 3/3 requerido</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Logs presentes en /var/log/kafka</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Grafana Alloy activo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter puerto 9100</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Verificación de versión Kafka / Java</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+</table>
+<p class="small">Total por nodo (según resumen del propio script): 34 checks / 12 PASS / 13 FAIL / 9 WARN —
+idéntico en los 3 nodos. Filas consolidadas: conectividad entre pares (2 combinaciones nodo–vecino por
+sección 4.3), uniformes dentro de cada tipo de chequeo.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="55">Tipo</th><th width="190">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Ningún contenedor Kafka corriendo en DR</td>
+<td><code>podman ps</code> no encuentra ningún contenedor Kafka en los 3 nodos DR. Es el hallazgo raíz: de
+él se derivan directamente todos los demás FAIL de este informe (directorios, puertos, quórum, logs).</td>
+<td><b>OBLIGATORIO</b> — ver acción obligatoria #1 en §5 (desplegar Kafka en los 3 nodos DR).</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>/data/kafka y /var/log/kafka no existen</td>
+<td>En los 3 nodos, ninguno de los dos directorios fue creado — consistente con que Kafka nunca se desplegó
+en este entorno.</td>
+<td><b>OBLIGATORIO</b> — se crean como parte del despliegue (acción obligatoria #1 en §5).</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Puertos 9092 y 9093 no escuchan en ningún nodo DR</td>
+<td>Confirmado localmente en los 3 nodos y también desde la perspectiva de sus vecinos (TCP 9092 no
+alcanzable entre pares). Consecuencia directa de la ausencia del contenedor.</td>
+<td><b>OBLIGATORIO</b> — se resuelve con el despliegue (acción obligatoria #1 en §5).</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Política de reinicio del contenedor: N/A</td>
+<td>No aplica porque no existe contenedor que configurar. El propio script lo marca como crítico en DR
+(a diferencia de Principal, donde el mismo vacío es WARN) porque no hay margen: el clúster DR debe estar
+100% listo para contingencia.</td>
+<td><b>OBLIGATORIO</b> — ver acción obligatoria #2 en §5.</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Quórum de brokers DR: 0/3 — por debajo del mínimo exigido (3/3)</td>
+<td>Ninguno de los 3 nodos DR responde en el puerto de broker; el diseño del proyecto exige 3/3 también en
+DR (Kafka no reduce capacidad en el datacenter alterno).</td>
+<td><b>OBLIGATORIO</b> — se resuelve con el despliegue y re-validación (acciones obligatorias #1 y #3 en §5).</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Directorio /var/log/kafka no existe (módulo de logs)</td>
+<td>Sin el directorio de logs, un incidente en DR no podría investigarse después de ocurrido.</td>
+<td><b>OBLIGATORIO</b> — se crea como parte del despliegue (acción obligatoria #1 en §5).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>TCP 9093 (controller) no alcanzable entre pares DR</td>
+<td>Reportado como WARN (no FAIL) por el script porque, sin contenedor activo, no puede distinguirse entre
+un bloqueo de red real y la ausencia simple del proceso escuchando. Debe reconfirmarse una vez el
+contenedor esté desplegado.</td>
+<td><b>OBLIGATORIO</b>: revalidar este puerto específicamente después del despliegue, ya que en Principal
+si está bloqueado impediría el quórum igual que el cluster.id (ver informe Principal §4.4).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Módulo de validación funcional omitido</td>
+<td>El script omite las pruebas de KRaft/topics por no encontrar contenedor local — no es un resultado
+propio, es la ausencia de evidencia por la causa raíz ya reportada.</td>
+<td><b>OBLIGATORIO</b>: ejecutar íntegramente tras el despliegue del contenedor.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Particiones sub-replicadas: no evaluado</td>
+<td>Sin acceso funcional al contenedor, el script no puede consultar el estado de replicación.</td>
+<td><b>OBLIGATORIO</b>: verificar tras el despliegue, como parte de la re-validación completa.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Verificación de versión Kafka/Java omitida</td>
+<td>No se pudo confirmar si, una vez desplegado, DR correrá Kafka 4.0.1 / JDK equivalente a Principal.</td>
+<td><b>RECOMENDADO</b>: confirmar versión de Kafka y JDK inmediatamente después del despliegue.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Sin unidad systemd con nombre 'kafka' / naming convention del contenedor N/A</td>
+<td>Consecuencia de la ausencia de contenedor; no puede evaluarse naming convention de algo que no existe.</td>
+<td><b>OBLIGATORIO</b>: definir junto con el despliegue (acción obligatoria #1 y #2 en §5).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>KAFKA_HOME no verificable dentro del contenedor</td>
+<td>No se pudo verificar por ausencia de contenedor Kafka corriendo.</td>
+<td><b>OBLIGATORIO</b>: se confirma automáticamente al desplegar (acción obligatoria #1 en §5).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>node-exporter no detectado (puerto 9100)</td>
+<td>El agente de métricas de nodo no responde en :9100 en ninguno de los 3 nodos DR.</td>
+<td>Ver nota aclaratoria a continuación — no bloqueante, mismo tratamiento que en Principal, MinIO y Flink.</td>
+</tr>
+</table>
+
+<div class="note">
+<b>Nota aclaratoria — node-exporter (puerto 9100)</b><br/>
+Igual que en el informe de Kafka Principal y en las validaciones de MinIO y Flink del mismo proyecto, esta
+advertencia queda reclasificada como informativa: la instalación no contempla node-exporter como proceso
+independiente. Grafana Alloy — activo y confirmado en los 3 nodos DR — incluye el componente
+<code>prometheus.exporter.unix</code>, que cubre nativamente la misma función. No existe brecha de
+monitoreo de infraestructura, incluso con Kafka caído.
+</div>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base — host DR listo, runtime de Kafka ausente</h2>
+<p>Los 3 nodos DR comparten el mismo stack de sistema operativo, Podman y systemd que Principal, y NTP está
+sincronizado en los 3. Esta capa está lista. La brecha completa del informe se origina en una capa por
+encima de esta: nunca se desplegó el contenedor Kafka.</p>
+
+<h2 class="sub">4.2 Persistencia y almacenamiento</h2>
+<p>A diferencia de Principal, donde <code>/data/kafka</code> y <code>/var/log/kafka</code> existen con el
+filesystem correcto, en DR ninguno de los dos directorios fue creado en ningún nodo. La partición
+<code>/data</code> sí está montada de forma independiente en los 3 nodos, por lo que el punto de montaje
+está listo para recibir los datos una vez se despliegue Kafka — falta el paso de creación de directorios y
+formateo de storage KRaft, no la infraestructura de disco.</p>
+
+<h2 class="sub">4.3 Red y conectividad</h2>
+<p>El ping entre los 3 nodos DR funciona correctamente, confirmando que la capa de red del datacenter
+alterno está operativa a nivel de host. Los fallos de TCP en 9092/9093 son consistentes con la ausencia del
+proceso Kafka escuchando esos puertos, no con un bloqueo de firewall — aunque el hallazgo de TCP 9093 entre
+pares (WARN, no FAIL) debe revalidarse explícitamente una vez el contenedor esté arriba, dado que en
+Principal un problema de red en ese mismo puerto sería indistinguible del problema de cluster.id hasta
+confirmarlo (ver informe Principal, hallazgo 4.4).</p>
+
+<h2 class="sub">4.4 Quórum KRaft y funcionalidad</h2>
+<p>El módulo funcional completo fue omitido por el script al no detectar contenedor local — no hay
+evidencia alguna del comportamiento de KRaft en DR. El quórum reportado es 0/3, muy por debajo del mínimo
+exigido de 3/3 que aplica igual en DR que en Principal, dado que el diseño del proyecto no permite reducir
+capacidad de Kafka en el datacenter alterno.</p>
+
+<h2 class="sub">4.5 Ciclo de vida del contenedor</h2>
+<p>No existe contenedor que evaluar, unidad systemd, ni política de reinicio configurada. Este es el mismo
+tipo de hallazgo que en Principal (ausencia de supervisión systemd y de política <code>always</code>), pero
+en DR se agrava porque coincide con la ausencia total del propio proceso Kafka.</p>
+
+<h2 class="sub">4.6 Capacidad DR (diseño Bluepoint: Kafka no reduce capacidad en DR)</h2>
+<p>Pese al clúster caído, se confirmó que los 3 nodos DR tienen RAM (7 GB) y vCPU (4) equivalentes a los
+nodos Principal — el diseño de no degradar la capacidad de Kafka en contingencia está correctamente
+aprovisionado a nivel de recursos de cómputo. Esto significa que, una vez desplegado el contenedor, el
+clúster DR debería poder operar con el mismo desempeño que Principal sin necesidad de aprovisionar hardware
+adicional — el bloqueo actual es puramente de despliegue de software, no de capacidad.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PASO A PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA #1 — Desplegar el contenedor Kafka en los 3 nodos DR</b></p>
+<ol>
+<li>Crear <code>/data/kafka</code> y <code>/var/log/kafka</code> en los 3 nodos, con los mismos permisos y
+propietario usados en Principal.</li>
+<li>Generar un único UUID de clúster para el clúster DR (independiente del UUID que finalmente use
+Principal): <code>kafka-storage.sh random-uuid</code>.</li>
+<li>Formatear el storage KRaft de los 3 nodos DR con ese mismo UUID compartido:
+<code>kafka-storage.sh format -t &lt;UUID_COMPARTIDO_DR&gt; -c /opt/kafka/config/server.properties</code>
+— aplicar la misma lección aprendida en Principal (ver informe Principal §4.4) para no repetir el error de
+formatear cada nodo por separado.</li>
+<li>Desplegar y levantar el contenedor Kafka (imagen <code>apache/kafka:4.0.1</code>, igual que Principal)
+en los 3 nodos, con <code>node.id</code> único y <code>controller.quorum.voters</code> idéntico apuntando a
+los 3 nodos DR.</li>
+</ol>
+
+<p><b>OBLIGATORIA #2 — Configurar arranque persistente y auto-recuperación</b></p>
+<ol>
+<li>Definir la unidad systemd que supervisará cada contenedor Kafka DR (o <code>podman generate systemd</code>).</li>
+<li>Configurar política de reinicio <code>always</code> en los 3 nodos — en DR este punto es crítico, no
+opcional, porque no hay margen operativo ante una caída silenciosa en contingencia.</li>
+<li>Confirmar la unidad como <code>enabled</code> para sobrevivir un reinicio de host.</li>
+</ol>
+
+<p><b>OBLIGATORIA #3 — Re-ejecutar la validación completa de DR</b></p>
+<p>Correr <code>validate_kafka_dr.sh</code> en los 3 nodos tras el despliegue, confirmando: quórum 3/3,
+ciclo de topic de prueba exitoso con RF=3, puertos 9092/9093 alcanzables entre los 3 nodos (incluyendo el
+9093 marcado hoy como WARN), y directorios de datos/logs presentes.</p>
+
+<p><b>RECOMENDADA — Confirmar versión de software una vez desplegado</b></p>
+<p>Verificar que DR corre Kafka 4.0.1 y una versión de JDK equivalente a la usada en Principal, dato que no
+pudo confirmarse en esta corrida por estar el clúster completamente caído.</p>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El Clúster Kafka DR (Datacenter Alterno) de la plataforma Big Data de la Cooperativa Jardín Azuayo
+completó la validación de implementación con resultado <b>NO APTO / RECHAZADO</b>, consistente con el
+propio veredicto del script de validación. La capa de host — sistema operativo, Podman, systemd, red entre
+nodos y recursos de cómputo equivalentes a Principal — está correctamente aprovisionada en los 3 nodos.</p>
+
+<p>El hallazgo bloqueante es total y uniforme en los 3 nodos: Kafka nunca fue desplegado en el datacenter
+alterno. No existe contenedor corriendo, los directorios de datos y logs no fueron creados, y el quórum es
+0/3 frente al mínimo exigido de 3/3 — el mismo umbral que aplica en Principal, dado que el diseño del
+proyecto no permite reducir la capacidad de Kafka en contingencia. Esto deja al proyecto sin punto de
+entrada de datos alterno operativo en caso de una falla del datacenter Principal.</p>
+
+<p><b>El clúster DR no está listo para asumir tráfico de contingencia: debe desplegarse el contenedor
+Kafka en los 3 nodos con un cluster.id compartido propio del entorno DR, configurarse arranque persistente
+con política de reinicio always, y confirmarse mediante re-validación un quórum de 3/3 antes de declarar el
+DR funcional.</b></p>
+
+<table width="680">
+<tr><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Elaborado por</td><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Revisado por</td></tr>
+<tr><td>Bluepoint AI — Consultoría Big Data<br/>Proyecto Big Data — Cooperativa Jardín Azuayo</td><td>Equipo de Infraestructura<br/>Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 09 de julio de 2026</td><td>Fecha: ______________________</td></tr>
+</table>
+
+
+</body></html>

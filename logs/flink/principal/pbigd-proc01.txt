@@ -1,0 +1,128 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Flink Cluster PRINCIPAL                ║
+║   Fecha : 2026-07-07 15:19:43                              ║
+║   Flink : 2.2.1  ·  Java : OpenJDK 17                    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS, Java y prerequisitos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Sistema operativo detectado: Rocky Linux 10.1
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  OpenJDK 17 detectado correctamente
+  [OK]  Distribución confirmada: OpenJDK
+  [WARN] JAVA_HOME no está definido en el entorno
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP (chrony) sincronizado
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Directorios y estructura
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Directorio existe: /opt/flink
+  [OK]    ↳ Escritura OK en /opt/flink
+  [OK]  Directorio existe: /data/flink
+  [OK]    ↳ Escritura OK en /data/flink
+  [OK]  Directorio existe: /var/log/flink
+  [OK]    ↳ Escritura OK en /var/log/flink
+  [WARN] Subdirectorio no encontrado: /data/flink/checkpoints (puede no existir antes del primer job)
+  [WARN] Subdirectorio no encontrado: /data/flink/savepoints (puede no existir antes del primer job)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Contenedor Flink JobManager (nodo local)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Este nodo (pbigd-proc01) no es el JobManager — omitiendo validaciones locales del JM
+  [INFO] Ejecuta este script también en: pbigd-plat-apps01
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Contenedor Flink TaskManager (nodo local)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Nodo identificado como TaskManager (pbigd-proc01)
+  [INFO] Contenedor TaskManager detectado: flink-tm-1
+  [OK]  Contenedor TaskManager corriendo: Up 7 days
+  [INFO] JVM en contenedor TaskManager: openjdk version "17.0.19" 2026-04-21 LTS
+error
+  [OK]  OpenJDK 17 confirmado en TaskManager
+  [INFO] Task slots configurados: unknown
+  [WARN] No se pudo leer numberOfTaskSlots (revisar ruta de conf en Flink 2.2.1)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Verificación de puertos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Actividad de red Flink/Java detectada en TaskManager
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 6 · REST API Flink JobManager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Consultando REST API: http://pbigd-plat-apps01:8081
+  [OK]  REST API responde: http://pbigd-plat-apps01:8081/overview
+  [INFO]   Flink versión (API):   2.2.1
+  [INFO]   TaskManagers activos:  3
+  [INFO]   Slots totales:         6
+  [INFO]   Slots disponibles:     6
+  [INFO]   Jobs corriendo:        0
+  [OK]  Versión Flink API coincide: 2.2.1
+  [OK]  TaskManagers registrados: 3 (≥3 requerido)
+  [OK]  Slots disponibles en el cluster: total=6 avail=6
+  [OK]  Endpoint /taskmanagers responde
+  TM: 172.17.210.99:40001-3f83e3 | slots=2 | freeSlots=2
+  TM: 172.17.210.101:40461-136629 | slots=2 | freeSlots=2
+  TM: 172.17.210.100:34187-6ff475 | slots=2 | freeSlots=2
+  [OK]  Endpoint /jobs responde
+  [OK]  Endpoint /jobmanager/config responde
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 7 · Systemd – persistencia y reinicio automático
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+There were too many logins for 'admapl'.
+validate_flink_principal.sh: line 402: 276441 Segmentation fault      (core dumped) sudo -u "$PODMAN_USER" systemctl --user is-active --quiet "$UNIT" 2> /dev/null
+  [WARN] Servicio 'flink-taskmanager' no activo como sistema ni usuario (verificar nombre exacto)
+There were too many logins for 'admapl'.
+validate_flink_principal.sh: line 402: 276452 Segmentation fault      (core dumped) sudo -u "$PODMAN_USER" systemctl --user is-active --quiet "$UNIT" 2> /dev/null
+  [WARN] Servicio 'container-flink-taskmanager' no activo como sistema ni usuario (verificar nombre exacto)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 8 · Checkpoints Flink → MinIO (S3)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  MinIO alcanzable desde este nodo: HTTP 200
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 9 · Job de prueba funcional
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Este nodo no es JobManager — omitiendo job de prueba
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 10 · Conectividad entre nodos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Nodo pbigd-plat-apps01 alcanzable (ping OK)
+  [WARN]   ↳ Puerto RPC 6123 no accesible en pbigd-plat-apps01
+  [OK]  Nodo pbigd-proc02 alcanzable (ping OK)
+  [OK]  Nodo pbigd-proc03 alcanzable (ping OK)
+  [FAIL] Puerto REST 8081 NO alcanzable en pbigd-plat-apps01
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 11 · Logs y observabilidad
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Logs del contenedor TaskManager disponibles
+  [OK]  Grafana Alloy activo
+  [WARN] node-exporter no detectado
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Flink Cluster PRINCIPAL                             ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-proc01                                       ║
+║   Total checks  : 36                                                 ║
+║   PASS          : 27                                                 ║
+║   FAIL          : 1                                                  ║
+║   WARN          : 8                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_flink_principal_20260707_151943.log  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✘  Se detectaron 1 fallos críticos — revisar log: /tmp/validate_flink_principal_20260707_151943.log
+
+  ▶ Ejecutar también en los nodos restantes:
+     ssh admapl@pbigd-plat-apps01 'bash validate_flink_principal.sh'
+     ssh admapl@pbigd-proc02 'bash validate_flink_principal.sh'
+     ssh admapl@pbigd-proc03 'bash validate_flink_principal.sh'

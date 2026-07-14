@@ -1,0 +1,157 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Flink Cluster DR (Alterno)             ║
+║   Fecha : 2026-07-07 16:37:08                              ║
+║   Flink : 2.2.1  ·  Java : OpenJDK 17  ·  Modo: CONTINGENCIA    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [DR]  NOTA: El cluster DR opera con capacidad reducida intencionalmente.
+  [DR]    pbigd-plat-apps01-cont: JobManager DR   — nodo dedicado
+  [DR]    pbigd-proc01-cont:      TaskManager DR
+  [DR]    pbigd-proc02-cont:      TaskManager DR
+  [DR]    Solo se ejecutan los jobs críticos de serving en modo contingencia.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS, Java y prerequisitos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Sistema operativo: Rocky Linux 10.2
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  OpenJDK 17 detectado
+  [OK]  Distribución OpenJDK confirmada
+  [WARN] JAVA_HOME no está definido en el entorno
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP sincronizado (timedatectl)
+  [INFO] Recursos nodo pbigd-plat-apps01-cont: 3 vCPU / 9 GB RAM
+  [OK]  RAM suficiente para JobManager DR: 9 GB (mín 10 GB especificado)
+  [WARN] vCPU insuficientes: 3 (se esperan ≥4 en pbigd-plat-apps01)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Directorios y estructura DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Directorio existe: /opt/flink
+  [OK]    ↳ Escritura OK en /opt/flink
+  [FAIL] Directorio faltante: /data/flink
+  [FAIL] Directorio faltante: /var/log/flink
+  [WARN] Subdirectorio no encontrado: /data/flink/checkpoints
+  [WARN] Subdirectorio no encontrado: /data/flink/savepoints
+  [INFO] Espacio disponible en /data/flink: 0 GB
+  [WARN] Espacio libre bajo: 0 GB (recomendado ≥20 GB para checkpoints)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Contenedor Flink JobManager (flink-jobmanager)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Nodo identificado como JobManager DR (pbigd-plat-apps01-cont)
+  [INFO] Contenedor detectado: flink-jobmanager
+  [OK]  Contenedor JobManager corriendo: Up 6 days
+  [OK]  Versión Flink DR: 2.2.1
+  [INFO] JVM en JobManager DR: openjdk version "17.0.19" 2026-04-21 LTS
+  [OK]  OpenJDK 17 en JobManager DR
+  [INFO] Contenedor JobManager iniciado: 2026-07-01 17:01:48.799429785 -0500 -05
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Contenedor Flink TaskManager DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Este nodo (pbigd-plat-apps01-cont) no tiene rol TaskManager DR activo — omitiendo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Verificación de puertos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Puerto 8081 (REST/UI) escuchando en JM DR
+  [OK]  Puerto 6123 (RPC) escuchando en JM DR
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 6 · REST API Flink JobManager DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Consultando REST API DR: http://pbigd-plat-apps01-cont:8081
+  [OK]  REST API DR responde: http://pbigd-plat-apps01-cont:8081/overview
+  [INFO]   Flink versión (API):   2.2.1
+  [INFO]   TaskManagers activos:  2  (mínimo aceptable DR: 1)
+  [INFO]   Slots totales:         4
+  [INFO]   Slots disponibles:     4
+  [INFO]   Jobs corriendo:        0
+  [OK]  Versión Flink API coincide: 2.2.1
+  [OK]  TaskManagers DR activos: 2 (umbral DR: ≥1)
+  [OK]  Slots disponibles en DR: total=4 avail=4
+  [DR]  En contingencia se esperan 0 job(s) críticos de serving activos
+  [OK]  Endpoint /taskmanagers responde en JM DR
+  TM: 172.17.210.194:33735... | host=pekko.tcp | slots=2 | free=2
+  TM: 172.17.210.193:46601... | host=pekko.tcp | slots=2 | free=2
+  [OK]  Endpoint /jobs responde
+  [INFO]   Jobs RUNNING: 0
+  [DR]  En contingencia activa se esperan jobs de serving corriendo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 7 · Systemd – persistencia y autoarranque DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+There were too many logins for 'admapl'.
+  [WARN] Servicio 'flink-jobmanager' no encontrado como activo (verificar nombre de unidad)
+There were too many logins for 'admapl'.
+  [WARN] Servicio 'container-flink-jobmanager' no encontrado como activo (verificar nombre de unidad)
+  [DR]  En DR es OBLIGATORIO que los servicios tengan 'enabled' para autoarrancar post-failover
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 8 · Checkpoints Flink → MinIO DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  MinIO DR alcanzable: HTTP 200 (http://pbigd-stg01-cont:9000)
+  [WARN] Sin configuración explícita de checkpoints — validar flink-conf.yaml en DR
+  [INFO] Intervalo de checkpoint configurado: ?
+  [DR]  Un intervalo ≤60s reduce la pérdida de datos en caso de failover DR
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 9 · Conectividad entre nodos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [FAIL] Nodo DR pbigd-proc01-cont NO responde — cluster DR degradado
+  [OK]  Nodo DR pbigd-proc02-cont alcanzable (ping OK)
+  [INFO] Verificando conectividad hacia componentes de serving en DR...
+  [OK]  Alcanzable: pbigd-plat-apps01-cont
+  [WARN] No se puede alcanzar: dr-kaf-1 (puede estar en otro segmento)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 10 · Jobs críticos para modo contingencia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [DR]  En modo contingencia, Flink DR debe ejecutar únicamente:
+  [DR]    · Job de reconstrucción de saldos (Kafka → Flink → Redis)
+  [DR]    · Job de serving de últimos N movimientos
+  [DR]
+  [OK]  Endpoint /jobs/overview disponible
+  [INFO] Verificando acceso a Kafka DR (prerequisito de jobs)...
+  [WARN] Redis DR no accesible en pbigd-plat-apps01-cont:6379 — jobs de serving no podrán escribir
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 11 · Logs y observabilidad DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Logs disponibles en JobManager DR (5 líneas recientes)
+  [WARN] Detectados 3 mensajes ERROR/Exception/FATAL en JM DR — revisar
+validate_flink_dr.sh: line 604: [[: 0
+0: syntax error in expression (error token is "0")
+  [OK]  Sin presión de memoria reportada en logs JM DR
+  [OK]  Grafana Alloy activo en DR
+  [WARN] node-exporter no detectado
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 12 · Capacidad y RTO estimado
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [DR]
+  [DR]  RTO estimado para este cluster DR:
+  [DR]    · JobManager disponible       → inmediato (contenedor ya corriendo)
+  [DR]    · TaskManagers registrados    → <30s tras inicio
+  [DR]    · Jobs críticos operativos    → <2min desde failover declarado
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Flink Cluster DR (Datacenter Alterno)               ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01-cont                             ║
+║   Total checks  : 41                                                 ║
+║   PASS          : 26                                                 ║
+║   FAIL          : 3                                                  ║
+║   WARN          : 12                                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_flink_dr_20260707_163708.log         ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✘  3 fallos críticos — cluster DR NO APTO para contingencia
+
+  ▶ Ejecutar también en el nodo restante:
+     ssh admapl@pbigd-proc01-cont 'bash validate_flink_dr.sh'
+     ssh admapl@pbigd-proc02-cont 'bash validate_flink_dr.sh'

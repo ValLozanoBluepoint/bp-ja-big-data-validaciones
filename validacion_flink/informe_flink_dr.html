@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Flink DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-fail{background:#f8d7d7;color:#8a1f1f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Clúster Flink — Procesamiento en tiempo real (DR / Contingencia)</td></tr>
+<tr><td class="lbl">Clúster</td><td>Flink DR (Datacenter Alterno — Contingencia)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-plat-apps01-cont</code> (JobManager DR) · <code>pbigd-proc01-cont</code> · <code>pbigd-proc02-cont</code> (TaskManagers DR)</td></tr>
+<tr><td class="lbl">Versión Flink</td><td>2.2.1 · OpenJDK 17</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.1 / 10.2 · Podman 5.8.2 · systemd</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>07 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-fail">✖ NO APTO PARA CONTINGENCIA</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se realizó la validación completa de la implementación del Clúster Flink DR (Datacenter Alterno) del
+proyecto Big Data de la Cooperativa Jardín Azuayo. La validación se ejecutó el 7 de julio de 2026 en los 3
+nodos del clúster DR (1 JobManager + 2 TaskManagers, capacidad reducida intencional para modo contingencia)
+mediante el script <code>validate_flink_dr.sh</code>, cubriendo 12 módulos de verificación con 115 puntos de
+control.</p>
+
+<p>El clúster DR está desplegado y responde: la API REST confirma 2 TaskManagers activos con 4 slots
+disponibles y 0 jobs corriendo, comportamiento esperado en modo standby. Sin embargo, la validación encontró
+3 fallos críticos consistentes: <b>no existen los directorios de persistencia <code>/data/flink</code> y
+<code>/var/log/flink</code> en ningún nodo</b> (sin ellos, Flink no puede recuperar estado ante un failover
+real), <b>Redis DR no es accesible</b> (los jobs críticos de contingencia no podrían escribir resultados), y
+un <b>fallo de conectividad intermitente</b> hacia uno de los TaskManagers detectado desde el JobManager. El
+propio script concluyó "NO APTO para contingencia" en los 3 nodos evaluados.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">73</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">35</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">7</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>El clúster DR opera con capacidad reducida intencionalmente (JobManager + 2 TaskManagers, 4 slots
+totales). Los checks se agrupan en comunes, específicos del JobManager DR y específicos de los TaskManagers DR.</p>
+
+<h2 class="sub">2.1 Checks comunes (JobManager DR + 2 TaskManagers DR)</h2>
+<table width="680">
+<tr><th width="280">Verificación</th><th>plat-apps01-cont (JM)</th><th>proc01-cont (TM)</th><th>proc02-cont (TM)</th></tr>
+<tr><td>SO Rocky Linux 10.x (10.2 JM / 10.1 TMs)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>OpenJDK 17</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>JAVA_HOME definido</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Podman 5.8.2</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Directorio /opt/flink existe + escritura</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Directorio /data/flink existe</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Directorio /var/log/flink existe</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Subdirectorios checkpoints/savepoints</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Espacio libre en /data/flink (0 GB — no existe)</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>REST API DR responde (overview/TMs/jobs)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>TaskManagers DR activos ≥1 (2 activos) / Slots 4-4</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>MinIO DR alcanzable (checkpoints S3)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Redis DR accesible (pbigd-plat-apps01-cont:6379)</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Kafka DR (dr-kaf-1) alcanzable</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Endpoint /jobs/overview disponible</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Grafana Alloy activo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter puerto 9100</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+</table>
+
+<h2 class="sub">2.2 Checks específicos — JobManager DR (pbigd-plat-apps01-cont)</h2>
+<table width="680">
+<tr><th width="420">Verificación</th><th>Resultado</th></tr>
+<tr><td>Recursos del nodo: 3 vCPU / 9 GB RAM</td><td class="warn">WARN (vCPU)</td></tr>
+<tr><td>Contenedor JobManager corriendo (Up 6 días) · Flink 2.2.1 · JVM 17</td><td class="pass">PASS</td></tr>
+<tr><td>Puertos 8081 (REST) y 6123 (RPC) escuchando localmente</td><td class="pass">PASS</td></tr>
+<tr><td>Servicios systemd 'flink-jobmanager' / 'container-flink-jobmanager' activos</td><td class="warn">WARN</td></tr>
+<tr><td>Configuración explícita de checkpoints en flink-conf.yaml</td><td class="warn">WARN</td></tr>
+<tr><td>Ping hacia pbigd-proc01-cont</td><td class="fail">FAIL</td></tr>
+<tr><td>Ping hacia pbigd-proc02-cont</td><td class="pass">PASS</td></tr>
+<tr><td>Logs disponibles — 3 líneas ERROR/Exception/FATAL detectadas</td><td class="warn">WARN</td></tr>
+<tr><td>Sin presión de memoria (OOM/GC) reportada</td><td class="pass">PASS</td></tr>
+</table>
+
+<h2 class="sub">2.3 Checks específicos — TaskManagers DR (pbigd-proc01-cont, pbigd-proc02-cont)</h2>
+<table width="680">
+<tr><th width="420">Verificación</th><th>proc01-cont</th><th>proc02-cont</th></tr>
+<tr><td>Contenedor TaskManager corriendo (Up 5 días) · JVM 17</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Task slots configurados (numberOfTaskSlots)</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Actividad Java/Flink en puertos de red</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Servicios systemd 'flink-taskmanager' / 'container-flink-tm-N-cont' activos</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Ping hacia pbigd-plat-apps01-cont</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto RPC 6123 accesible en plat-apps01-cont</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Logs disponibles · Sin presión de memoria</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total por nodo (según resumen del propio script): plat-apps01-cont 41 checks / 26 PASS / 3 FAIL
+/ 12 WARN · proc01-cont 37 / 24 / 2 / 11 (última corrida válida, ver nota operativa en sección 3) · proc02-cont
+37 / 23 / 2 / 12.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="55">Tipo</th><th width="180">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>/data/flink y /var/log/flink no existen</td>
+<td>FAIL consistente en los 3 nodos DR. Sin estos directorios no hay dónde persistir checkpoints, savepoints
+ni logs — en un failover real, Flink no podría recuperar estado. <b>Es el hallazgo más grave del informe.</b></td>
+<td><b>OBLIGATORIO:</b> crear <code>/data/flink</code>, <code>/data/flink/checkpoints</code>,
+<code>/data/flink/savepoints</code> y <code>/var/log/flink</code> con los permisos del usuario admapl en los
+3 nodos DR antes de la próxima prueba de contingencia.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Redis DR no accesible (puerto 6379)</td>
+<td>Los dos jobs críticos de contingencia (reconstrucción de saldos Kafka→Flink→Redis, y serving de últimos N
+movimientos) dependen de esta escritura. Sin Redis, el DR no cumple su propósito funcional aunque el resto de
+checks pase.</td>
+<td><b>OBLIGATORIO:</b> validar despliegue y conectividad de red hacia Redis DR — bloqueante para declarar el
+DR apto.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Kafka DR (dr-kaf-1) no alcanzable</td>
+<td>Puede estar en otro segmento de red. Sin acceso a Kafka, el job de reconstrucción de saldos no tiene
+fuente de datos en un failover real.</td>
+<td><b>OBLIGATORIO:</b> confirmar el segmento de red correcto y la conectividad hacia el clúster Kafka DR.</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>pbigd-proc01-cont no responde ping desde el JobManager DR</td>
+<td>Reportado como "cluster DR degradado". Contradice al Módulo 6 del mismo run, donde la API REST del
+JobManager confirma 2 TaskManagers registrados con slots libres (incluye ese nodo), y al log ejecutado
+localmente en proc01-cont, que muestra el contenedor activo y con red operativa hacia el resto del clúster
+DR. Apunta a bloqueo de ICMP o conectividad intermitente/asimétrica en el segmento DR, no a un nodo caído.</td>
+<td><b>OBLIGATORIO:</b> monitorear estabilidad de red del segmento DR entre estos nodos; descartar bloqueo de
+ICMP como causa antes de asumir el nodo como no disponible.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Servicios systemd de Flink no detectados como activos/enabled</td>
+<td>Igual patrón que en el clúster Principal: WARN limpio en el JobManager DR, y Segmentation fault en
+<code>systemctl --user is-active</code> en los 2 TaskManagers DR. En DR, el propio script marca el
+autoarranque post-failover como requisito obligatorio.</td>
+<td><b>OBLIGATORIO:</b> resolver el segmentation fault y confirmar <code>enabled</code> en los 3 nodos DR.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>vCPU insuficientes en JobManager DR: 3 vs. 4 esperados</td>
+<td>RAM del nodo (9 GB) es señalada como suficiente por el script pese a que el mínimo especificado en el
+diseño es 10 GB — inconsistencia de umbral en el propio chequeo que debe revisarse además de la brecha de
+vCPU.</td>
+<td><b>RECOMENDADO:</b> escalar capacidad de vCPU del JobManager DR o confirmar formalmente que el
+dimensionamiento reducido es aceptado para modo contingencia; revisar el umbral de RAM del script.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>node-exporter no detectado (puerto 9100)</td>
+<td>Igual que en el clúster Principal, en los 3 nodos DR.</td>
+<td>Ver nota aclaratoria a continuación — mismo tratamiento que en Principal y en MinIO.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>JAVA_HOME no definido</td>
+<td>Presente en los 3 nodos DR.</td>
+<td><b>OPCIONAL:</b> definir JAVA_HOME en el perfil del usuario admapl.</td>
+</tr>
+<tr>
+<td class="na">INFO</td>
+<td>Rocky Linux 10.1 (DR) vs 10.2 (Principal)</td>
+<td>Diferencia de patch version dentro de la misma rama major.minor; no genera incompatibilidad funcional.</td>
+<td><b>RECOMENDADO:</b> homogeneizar a 10.2 en la próxima ventana de mantenimiento, igual que lo recomendado
+para el clúster MinIO DR.</td>
+</tr>
+</table>
+
+<div class="note">
+<b>Nota aclaratoria — node-exporter (puerto 9100)</b><br/>
+Igual que en el clúster Principal y en el clúster MinIO del mismo proyecto: la instalación no contempla
+node-exporter como proceso independiente. Grafana Alloy — activo en los 3 nodos DR — expone las métricas de
+nodo equivalentes mediante <code>prometheus.exporter.unix</code> en el puerto 17935. No existe brecha de
+monitoreo de infraestructura.
+</div>
+
+<div class="note">
+<b>Nota operativa — incidencia durante la ejecución en pbigd-proc01-cont</b><br/>
+El log de <code>pbigd-proc01-cont</code> registra al operador editando el script en vivo
+(<code>vi validate_flink_dr.sh</code>) tras errores "command not found" / "syntax error near unexpected
+token" en los dos primeros intentos de ejecución. Esto indica que el archivo llegó a ese nodo con un problema
+de formato/codificación y se corrigió de forma ad-hoc en el sitio. Se tomó como válida la tercera ejecución
+(resultado limpio, usado en este informe). <b>Recomendado:</b> redistribuir el script ya corregido en lugar de
+parchear copias locales por nodo, para evitar divergencia entre versiones ejecutadas en cada nodo.
+</div>
+
+<div class="note">
+<b>Nota de calidad de script — validate_flink_dr.sh</b><br/>
+Se detectó un defecto reproducible en el conteo de líneas de error de log (línea ≈604): bajo
+<code>set -euo pipefail</code>, cuando <code>grep -c</code> no encuentra coincidencias sale con status 1 aunque
+ya imprimió "0", y el <code>|| echo 0</code> agrega una segunda línea; el resultado ("0\n0") rompe la
+comparación <code>[[ "$ERRORS" -eq 0 ]]</code> con <i>syntax error in expression</i>. Es un defecto del script
+de validación, no de la infraestructura DR. <b>Recomendado:</b> corregirlo y redistribuir una versión limpia
+antes de la próxima ejecución, junto con el umbral de RAM señalado arriba.
+</div>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base DR — operativa con capacidad reducida intencional</h2>
+<p>El JobManager DR y los 2 TaskManagers DR comparten el mismo stack de runtime (Podman 5.8.2, OpenJDK 17)
+que el clúster Principal, con Rocky Linux 10.1 en los TaskManagers y 10.2 en el JobManager. La reducción de
+capacidad (1 JM + 2 TM, 4 slots) es una decisión de diseño documentada para modo contingencia, no un hallazgo.</p>
+
+<h2 class="sub">4.2 Clúster DR — TaskManagers y slots</h2>
+<p>La API REST confirma 2 TaskManagers activos (umbral DR: ≥1) con 4 slots totales y 4 disponibles, y 0 jobs
+corriendo. Este estado es el esperado en modo standby: en contingencia activa se esperarían los 2 jobs
+críticos de serving corriendo, lo cual el propio script señala como pendiente de activar en un failover real.</p>
+
+<h2 class="sub">4.3 Conectividad hacia Kafka y Redis DR — bloqueante funcional</h2>
+<p>La conectividad TCP hacia el clúster Kafka DR (<code>dr-kaf-1</code>) y hacia Redis DR
+(<code>pbigd-plat-apps01-cont:6379</code>) no pudo confirmarse. Ambos servicios son dependencias directas de
+los dos jobs críticos de contingencia (reconstrucción de saldos y serving de últimos movimientos). Sin estas
+dos rutas de red operativas, el DR podría tener el JobManager y los TaskManagers arriba y aun así no poder
+ejecutar su función durante un failover real.</p>
+
+<h2 class="sub">4.4 Hallazgo crítico — persistencia de checkpoints y logs inexistente</h2>
+<p>La ausencia de <code>/data/flink</code> y <code>/var/log/flink</code> en los 3 nodos DR es el hallazgo de
+mayor severidad: sin estos directorios, Flink no tiene dónde escribir checkpoints ni savepoints, por lo que un
+failover real partiría sin estado recuperable. A diferencia de otros hallazgos de este informe, este no admite
+interpretación alternativa — es un FAIL consistente y sin contradicción en la evidencia.</p>
+
+<h2 class="sub">4.5 RTO estimado — optimista frente al estado actual</h2>
+<p>El script reporta un RTO estimado de: JobManager disponible de forma inmediata, TaskManagers registrados en
+menos de 30 segundos, y jobs críticos operativos en menos de 2 minutos desde el failover declarado. Este RTO
+asume que los directorios de persistencia existen y que Redis/Kafka DR son alcanzables — ninguna de las dos
+condiciones se cumple hoy, por lo que el RTO real actual es indeterminado hasta resolver los hallazgos
+obligatorios de la sección 5.</p>
+
+<h2 class="sub">4.6 Rocky Linux 10.1 (DR) vs 10.2 (Principal)</h2>
+<p>Diferencia de patch version dentro de la misma rama major.minor, sin incompatibilidad funcional conocida.
+Se recomienda homogeneizar en la próxima ventana de mantenimiento, en línea con lo ya recomendado para el
+clúster MinIO DR del mismo proyecto.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE DECLARAR EL DR APTO</td></tr></table>
+
+<p><b>OBLIGATORIA — Crear estructura de persistencia en los 3 nodos DR</b></p>
+<p>Crear <code>/data/flink</code> (con subdirectorios <code>checkpoints</code> y <code>savepoints</code>) y
+<code>/var/log/flink</code>, con los permisos del usuario admapl, en <code>pbigd-plat-apps01-cont</code>,
+<code>pbigd-proc01-cont</code> y <code>pbigd-proc02-cont</code>.</p>
+
+<p><b>OBLIGATORIA — Resolver conectividad hacia Redis DR</b></p>
+<p>Validar despliegue y ruta de red hacia <code>pbigd-plat-apps01-cont:6379</code>. Bloqueante: sin esta
+conexión, los jobs de serving de contingencia no pueden escribir resultados.</p>
+
+<p><b>OBLIGATORIA — Resolver conectividad hacia Kafka DR</b></p>
+<p>Confirmar el segmento de red correcto hacia <code>dr-kaf-1</code> y validar conectividad TCP en el puerto
+del broker. Bloqueante: sin Kafka, el job de reconstrucción de saldos no tiene fuente de datos.</p>
+
+<p><b>OBLIGATORIA — Aclarar la conectividad intermitente hacia pbigd-proc01-cont</b></p>
+<ol>
+<li>Confirmar si el fallo de ping es un bloqueo de ICMP (mientras el tráfico de aplicación/RPC de Flink sí
+funciona, como sugiere la evidencia) o un problema real de red.</li>
+<li>Monitorear estabilidad del segmento DR entre plat-apps01-cont y proc01-cont durante varios ciclos.</li>
+</ol>
+
+<p><b>OBLIGATORIA — Resolver el fallo de systemd y confirmar autoarranque</b></p>
+<p>Diagnosticar el segmentation fault de <code>systemctl --user is-active</code> en los TaskManagers DR y
+confirmar <code>enabled</code> en las 3 unidades, requisito explícito del diseño de contingencia.</p>
+
+<p><b>RECOMENDADA — Confirmar dimensionamiento de vCPU del JobManager DR</b></p>
+<p>Escalar a 4 vCPU o confirmar formalmente que 3 vCPU es aceptado para modo contingencia; revisar el umbral
+de validación de RAM en el script (marca OK con 9 GB pese a un mínimo especificado de 10 GB).</p>
+
+<p><b>RECOMENDADA — Homogeneizar Rocky Linux 10.1 → 10.2 y corregir/redistribuir validate_flink_dr.sh</b></p>
+<p>Actualizar los nodos DR en la próxima ventana de mantenimiento; corregir el bug de conteo de errores de log
+del script y redistribuir una versión única y corregida a todos los nodos DR.</p>
+
+<p><b>OPCIONAL</b></p>
+<ul>
+<li>Definir JAVA_HOME en el perfil del usuario admapl.</li>
+<li>Confirmar estado de node-exporter (ver nota aclaratoria, sección 3).</li>
+</ul>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El Clúster Flink DR (Datacenter Alterno) del proyecto Big Data de la Cooperativa Jardín Azuayo ha
+completado la validación de implementación con resultado <b>NO APTO PARA CONTINGENCIA</b> en su estado
+actual. La validación se ejecutó el 7 de julio de 2026 sobre los 3 nodos del clúster (1 JobManager + 2
+TaskManagers), cubriendo 12 módulos de verificación con 115 puntos de control.</p>
+
+<p>Desde el punto de vista de disponibilidad de proceso, el clúster está correctamente desplegado: los
+contenedores de JobManager y TaskManagers están activos, la API REST confirma quórum de 2 TaskManagers con 4
+slots libres, y la conectividad hacia MinIO (S3) para checkpoints responde correctamente. Sin embargo, tres
+hallazgos críticos comprometen directamente la función del datacenter alterno: la ausencia de los directorios
+de persistencia <code>/data/flink</code> y <code>/var/log/flink</code> en los 3 nodos, la inaccesibilidad de
+Redis DR (requerido por los jobs de serving de contingencia) y de Kafka DR (fuente de datos del job de
+reconstrucción de saldos), y un fallo de conectividad intermitente hacia uno de los TaskManagers que debe
+descartarse como bloqueo de ICMP antes de asumir el nodo como no disponible.</p>
+
+<p><b>Ninguno de estos hallazgos es cuestión de configuración menor: sin persistencia, sin Redis y sin Kafka
+operativos, un failover declarado hoy dejaría al clúster DR sin capacidad real de recuperar estado ni de
+servir los procesos críticos de saldos y movimientos. La resolución de las 5 acciones obligatorias de la
+sección 5 y una revalidación posterior son condición necesaria antes de aceptar este clúster como plan de
+contingencia funcional.</b></p>
+
+<table width="680">
+<tr><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Elaborado por</td><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Revisado por</td></tr>
+<tr><td>Bluepoint AI — Consultoría Big Data<br/>Proyecto Big Data — Cooperativa Jardín Azuayo</td><td>Equipo de Infraestructura<br/>Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 07 de julio de 2026</td><td>Fecha: ______________________</td></tr>
+</table>
+
+
+</body></html>

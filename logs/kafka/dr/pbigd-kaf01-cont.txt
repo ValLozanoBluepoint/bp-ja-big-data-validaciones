@@ -1,0 +1,127 @@
+
+  ██████╗ ██╗     ██╗   ██╗███████╗██████╗  ██████╗ ██╗███╗   ██╗████████╗
+  ██╔══██╗██║     ██║   ██║██╔════╝██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝
+  ██████╔╝██║     ██║   ██║█████╗  ██████╔╝██║   ██║██║██╔██╗ ██║   ██║
+  ██╔══██╗██║     ██║   ██║██╔══╝  ██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║
+  ██████╔╝███████╗╚██████╔╝███████╗██║     ╚██████╔╝██║██║ ╚████║   ██║
+  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝
+
+  Cooperativa Jardín Azuayo — Proyecto Big Data
+  Cluster: Kafka DR (Datacenter Alterno)
+  Nodo actual: pbigd-kaf01-cont  (rol detectado: pbigd-kaf01-cont)
+  Bootstrap server: localhost:9092
+  Fecha/Hora: 2026-07-09 16:28:18 -05
+  Nota: Kafka mantiene capacidad COMPLETA en DR (sin degradar umbrales),
+  a diferencia de Flink/MinIO — es el punto de entrada crítico del flujo de datos.
+
+
+══════════════════════════════════════════════════════
+  1. SISTEMA OPERATIVO Y RUNTIME DR
+══════════════════════════════════════════════════════
+[INFO] 1.1 Verificando sistema operativo...
+[PASS] SO: Rocky Linux — 10.2 (Red Quartz)
+[INFO] 1.2 Versión del kernel...
+[PASS] Kernel: 6.12.0-124.40.1.el10_1.x86_64
+[INFO] 1.3 Verificando Podman...
+[PASS] Podman 5.8.2 instalado (>= 5.x requerido)
+[INFO] 1.4 Verificando systemd...
+[PASS] systemd: running
+[INFO] 1.5 Verificando sincronización NTP (crítico para consenso KRaft/Raft)...
+[PASS] NTP sincronizado
+[INFO] 1.6 Verificando naming convention del nodo DR...
+[PASS] Hostname del nodo DR correcto: pbigd-kaf01-cont (patrón pbigd-kaf<NN>-cont)
+[INFO] 1.7 Verificando recursos del nodo (Kafka DR no se reduce respecto a Principal)...
+[INFO] Recursos nodo pbigd-kaf01-cont: 4 vCPU / 7 GB RAM
+[PASS] RAM equivalente al Principal: 7 GB (spec: 8 GB)
+[PASS] vCPU equivalentes al Principal: 4 (spec: 4)
+
+══════════════════════════════════════════════════════
+  2. ESTRUCTURA DE DIRECTORIOS Y PERSISTENCIA DR
+══════════════════════════════════════════════════════
+[INFO] Verificando /data/kafka ...
+[FAIL] Directorio /data/kafka NO existe
+[INFO] Verificando /var/log/kafka ...
+[FAIL] Directorio /var/log/kafka NO existe
+[INFO] Verificando partición /data independiente...
+[PASS] Partición /data montada en: /data
+[INFO] Verificando /opt/kafka dentro del contenedor...
+[WARN] No se pudo verificar KAFKA_HOME dentro del contenedor — contenedor Kafka no detectado aún
+
+══════════════════════════════════════════════════════
+  3. SERVICIO SYSTEMD Y CONTENEDOR PODMAN DR
+══════════════════════════════════════════════════════
+[INFO] 3.1 Verificando unidades systemd de Kafka...
+[WARN] No se encontraron unidades systemd con nombre 'kafka'
+[INFO] 3.2 Verificando contenedor Podman Kafka DR...
+[FAIL] No se encontró ningún contenedor Kafka corriendo (podman ps) — DR inoperativo
+[INFO] 3.3 Verificando naming convention de contenedores...
+[WARN] Naming convention esperada: kafka-broker-<índice> — nombre actual: N/A
+[INFO] 3.4 Verificando política de reinicio...
+[FAIL] Política de reinicio: N/A — CRÍTICO en DR: se recomienda 'always' o gestión vía systemd habilitado
+
+══════════════════════════════════════════════════════
+  4. CONECTIVIDAD DE RED DR
+══════════════════════════════════════════════════════
+[INFO] 4.1 Puerto broker / client (9092)...
+[FAIL] Puerto 9092 (Broker / Client API) NO escuchando — Kafka DR puede no estar activo
+[INFO] 4.2 Puerto controller KRaft (9093)...
+[FAIL] Puerto 9093 (Controller KRaft) NO escuchando — Kafka DR puede no estar activo
+[INFO] 4.3 Conectividad entre nodos del cluster DR...
+[PASS] Ping a pbigd-kaf02-cont (DR): OK (rtt: 0.287ms)
+[FAIL] TCP pbigd-kaf02-cont:9092 (DR) no alcanzable
+[WARN] TCP pbigd-kaf02-cont:9093 (controller, DR) no alcanzable — revisar listeners internos
+[PASS] Ping a pbigd-kaf03-cont (DR): OK (rtt: 0.348ms)
+[FAIL] TCP pbigd-kaf03-cont:9092 (DR) no alcanzable
+[WARN] TCP pbigd-kaf03-cont:9093 (controller, DR) no alcanzable — revisar listeners internos
+
+══════════════════════════════════════════════════════
+  5. VALIDACIÓN FUNCIONAL DR (KRaft y topics)
+══════════════════════════════════════════════════════
+[WARN] No se detectó contenedor Kafka local — omitiendo validaciones funcionales
+[INFO] Módulo funcional omitido — sin contenedor Kafka local disponible
+
+══════════════════════════════════════════════════════
+  6. RESILIENCIA Y ESTADO DEL CLUSTER DR
+══════════════════════════════════════════════════════
+[WARN] 6.1 No evaluado — sin acceso funcional al contenedor
+[INFO] 6.2 Estado de Kafka en cada nodo del cluster DR (TCP broker port)...
+[FAIL] Nodo DR pbigd-kaf01-cont: puerto 9092 NO alcanzable — DOWN o inaccesible
+[FAIL] Nodo DR pbigd-kaf02-cont: puerto 9092 NO alcanzable — DOWN o inaccesible
+[FAIL] Nodo DR pbigd-kaf03-cont: puerto 9092 NO alcanzable — DOWN o inaccesible
+[FAIL] Nodos del cluster DR: 0/3 — POR DEBAJO del mínimo exigido (3/3) — Kafka DR degradado
+
+══════════════════════════════════════════════════════
+  7. LOGS Y OBSERVABILIDAD DR
+══════════════════════════════════════════════════════
+[INFO] 7.1 Verificando logs en /var/log/kafka...
+[FAIL] Directorio /var/log/kafka NO existe
+[INFO] 7.3 Verificando Grafana Alloy (observabilidad)...
+[PASS] Alloy: alloy.service — activo
+[INFO] 7.4 Verificando node-exporter...
+[WARN] node-exporter: no detectado en puerto 9100
+
+══════════════════════════════════════════════════════
+  8. VERSIÓN DE KAFKA Y JAVA (DR)
+══════════════════════════════════════════════════════
+[WARN] 8. Verificación de versión omitida — sin acceso funcional al contenedor
+
+══════════════════════════════════════════════════════
+  RESUMEN DE VALIDACIÓN — CLUSTER DR
+══════════════════════════════════════════════════════
+  Cluster       : Kafka DR (Datacenter Alterno)
+  Nodo          : pbigd-kaf01-cont
+  Nodos DR      : pbigd-kaf01-cont pbigd-kaf02-cont pbigd-kaf03-cont
+  Nodos UP      : 0/3
+  Fecha         : 2026-07-09 16:28:18 -05
+  Total checks  : 34
+  PASS          : 12
+  FAIL          : 13
+  WARN          : 9
+
+  Notas de diseño DR (Bluepoint):
+  • Kafka NO reduce capacidad en DR — mismos recursos y umbrales que Principal
+  • Es el punto de entrada crítico de todo el flujo de datos (outbox y replicación)
+  • Un quórum incompleto (<3/3) se reporta como FALLO, no como advertencia
+
+  ❌  VALIDACIÓN DR FALLÓ: 13 ERROR(ES) | 9 ADVERTENCIA(S)
+      Corregir errores críticos — el cluster DR no está listo para contingencia.

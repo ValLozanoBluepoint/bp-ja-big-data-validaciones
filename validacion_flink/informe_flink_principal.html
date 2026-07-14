@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Flink Principal</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Clúster Flink — Procesamiento en tiempo real (stream processing)</td></tr>
+<tr><td class="lbl">Clúster</td><td>Flink Principal (Datacenter Principal)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-plat-apps01</code> (JobManager) · <code>pbigd-proc01</code> · <code>pbigd-proc02</code> · <code>pbigd-proc03</code> (TaskManagers)</td></tr>
+<tr><td class="lbl">Versión Flink</td><td>2.2.1 · OpenJDK 17</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.1 / 10.2 · Podman 5.8.2 · systemd</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>07 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-warn">⚠ APROBADO CON OBSERVACIONES</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se realizó la validación completa de la implementación del Clúster Flink Principal del proyecto Big Data
+de la Cooperativa Jardín Azuayo (proyecto Bluepoint). La validación se ejecutó el 7 de julio de 2026 en los
+4 nodos del clúster (1 JobManager, 3 TaskManagers) mediante el script <code>validate_flink_principal.sh</code>,
+cubriendo 11 módulos de verificación con un total de 148 puntos de control.</p>
+
+<p>El clúster se encuentra operativo: la API REST del JobManager confirma quórum de 3 TaskManagers
+registrados con 6 slots disponibles, la conectividad hacia MinIO (S3) para checkpoints responde correctamente
+en los 4 nodos y no hay jobs con error en ejecución. Se identificó una inconsistencia de conectividad de red
+(puerto 8081/6123 entre TaskManagers y JobManager) que contradice la propia evidencia de la API REST y debe
+aclararse formalmente antes de confiar en el failover automático entre nodos; adicionalmente, el chequeo de
+autoarranque por systemd falla con un error reproducible del entorno en los 3 TaskManagers.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">113</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">32</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">3</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Los checks se agrupan en tres bloques: comunes a todos los nodos, específicos del rol JobManager y
+específicos del rol TaskManager, ya que cada rol ejecuta módulos distintos del script.</p>
+
+<h2 class="sub">2.1 Checks comunes (JobManager + 3 TaskManagers)</h2>
+<table width="680">
+<tr><th width="280">Verificación</th><th>plat-apps01 (JM)</th><th>proc01 (TM)</th><th>proc02 (TM)</th><th>proc03 (TM)</th></tr>
+<tr><td>SO Rocky Linux 10.x</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>OpenJDK 17</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>JAVA_HOME definido</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Podman 5.8.2</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Directorios /opt,/data,/var/log/flink + escritura</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Subdir. checkpoints / savepoints existen</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>REST API JobManager responde (overview/TMs/jobs/config)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>TaskManagers registrados ≥3 / Slots 6 total-6 libres</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>MinIO (S3) alcanzable para checkpoints</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Conectividad ping hacia el resto del clúster</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto REST 8081 alcanzable directamente</td><td class="pass">PASS</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Puerto RPC 6123 alcanzable directamente</td><td class="pass">PASS</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Grafana Alloy activo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter puerto 9100</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+</table>
+
+<h2 class="sub">2.2 Checks específicos — rol JobManager (pbigd-plat-apps01)</h2>
+<table width="680">
+<tr><th width="420">Verificación</th><th>Resultado</th></tr>
+<tr><td>Contenedor JobManager corriendo (Up 7 días) · Versión Flink 2.2.1 · JVM 17</td><td class="pass">PASS</td></tr>
+<tr><td>Imagen identificada: localhost/flink:2.2.1</td><td class="pass">PASS</td></tr>
+<tr><td>Servicio systemd 'flink-jobmanager' activo</td><td class="warn">WARN</td></tr>
+<tr><td>Servicio systemd 'container-flink-jobmanager' activo</td><td class="warn">WARN</td></tr>
+<tr><td>Configuración explícita de checkpoints en flink-conf.yaml</td><td class="warn">WARN</td></tr>
+<tr><td>Endpoint /jars responde · Flink CLI operativo (list jobs)</td><td class="pass">PASS</td></tr>
+<tr><td>0 jobs corriendo / 0 JARs subidos (esperado, sin despliegue aún)</td><td class="na">INFO</td></tr>
+<tr><td>Logs disponibles — 6 líneas ERROR/Exception/FATAL detectadas</td><td class="warn">WARN</td></tr>
+</table>
+
+<h2 class="sub">2.3 Checks específicos — rol TaskManager (pbigd-proc01, proc02, proc03)</h2>
+<table width="680">
+<tr><th width="420">Verificación</th><th>proc01</th><th>proc02</th><th>proc03</th></tr>
+<tr><td>Contenedor TaskManager corriendo (Up 6-7 días) · JVM 17</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Task slots configurados (numberOfTaskSlots)</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Actividad de red Flink/Java detectada</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Servicio systemd 'flink-taskmanager' activo</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Servicio systemd 'container-flink-taskmanager' activo</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Logs del contenedor TaskManager disponibles</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total por nodo (según resumen del propio script): plat-apps01 40 checks / 32 PASS / 0 FAIL / 8 WARN
+· proc01 36 / 27 / 1 / 8 · proc02 36 / 27 / 1 / 8 · proc03 36 / 27 / 1 / 8.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="55">Tipo</th><th width="180">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Puerto REST 8081 no alcanzable TM→JM</td>
+<td>Módulo 10 reporta <code>[FAIL] Puerto REST 8081 NO alcanzable en pbigd-plat-apps01</code> desde los 3 TaskManagers. Contradice al Módulo 6 del mismo run, donde la consulta REST a <code>http://pbigd-plat-apps01:8081/overview</code> sí responde y confirma los 3 TaskManagers registrados con slots libres.</td>
+<td><b>OBLIGATORIO:</b> validar con el equipo de red las reglas de firewall/ACL en el puerto 8081 entre proc01-03 → pbigd-plat-apps01. Confirmar en el script qué método usa el Módulo 10 (<code>nc</code>/<code>curl</code>/<code>/dev/tcp</code>) para descartar que el propio chequeo no sea representativo del tráfico real.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Puerto RPC 6123 no accesible TM→JM</td>
+<td>Mismo patrón que el hallazgo anterior, en los 3 TaskManagers, sobre el puerto RPC usado para la comunicación interna del clúster.</td>
+<td><b>OBLIGATORIO</b> (mismo tratamiento): resolver junto con el hallazgo de puerto 8081, probable causa raíz común de red/firewall.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Servicios systemd de Flink no detectados como activos</td>
+<td>En el JobManager el chequeo retorna WARN limpio (unidad no encontrada con ese nombre). En los 3 TaskManagers, el mismo chequeo (<code>systemctl --user is-active</code> vía <code>sudo -u</code>) termina en <b>Segmentation fault (core dumped)</b> antes de completar.</td>
+<td><b>OBLIGATORIO:</b> (a) confirmar el nombre real de la unidad systemd de cada contenedor Flink, (b) diagnosticar el segmentation fault reproducible de <code>systemctl --user is-active</code> bajo <code>sudo -u</code> en los 3 TaskManagers, (c) confirmar autoarranque habilitado.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>6 líneas ERROR/Exception/FATAL en logs del JobManager</td>
+<td>Detectadas en las líneas recientes del log del contenedor JobManager, aún no revisadas en detalle.</td>
+<td><b>OBLIGATORIO:</b> revisar el contenido completo de esas líneas antes de desplegar jobs de streaming de producción.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>node-exporter no detectado (puerto 9100)</td>
+<td>El agente de métricas de nodo no responde en :9100 en ninguno de los 4 nodos.</td>
+<td>Ver nota aclaratoria a continuación — mismo tratamiento que en el clúster MinIO.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Configuración explícita de checkpoints no encontrada</td>
+<td>El JobManager no expone una configuración explícita de intervalo de checkpoints hacia MinIO (S3) en <code>flink-conf.yaml</code>.</td>
+<td><b>RECOMENDADO:</b> configurar un intervalo de checkpoint (≤60s sugerido) antes del primer job de producción, para acotar la pérdida de estado ante una falla.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Task slots configurados: "unknown" en los 3 TaskManagers</td>
+<td>No se pudo leer <code>numberOfTaskSlots</code> desde la ruta de configuración esperada en Flink 2.2.1.</td>
+<td><b>OPCIONAL:</b> revisar en el script la ruta de lectura de configuración para Flink 2.2.1 (puede haber cambiado el formato respecto a versiones previas).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>JAVA_HOME no definido en el entorno</td>
+<td>Presente en los 4 nodos.</td>
+<td><b>OPCIONAL:</b> definir JAVA_HOME explícitamente en el perfil del usuario admapl.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Subdirectorios checkpoints/savepoints no existen aún</td>
+<td>El propio script indica que pueden no existir antes del primer job — se crean automáticamente al primer checkpoint/savepoint.</td>
+<td><b>OPCIONAL:</b> confirmar su creación automática al ejecutar el primer job real.</td>
+</tr>
+<tr>
+<td class="na">INFO</td>
+<td>0 jobs corriendo / 0 JARs subidos</td>
+<td>Estado esperado: el clúster aún no tiene jobs de streaming desplegados.</td>
+<td><b>INFORMATIVO:</b> documentar como línea base pre-despliegue.</td>
+</tr>
+</table>
+
+<div class="note">
+<b>Nota aclaratoria — node-exporter (puerto 9100)</b><br/>
+Durante la ejecución del script de validación se generó una advertencia indicando que node-exporter no fue
+detectado en el puerto 9100. Esta advertencia queda desestimada y reclasificada como informativa, en línea
+con lo confirmado en la validación del clúster MinIO del mismo proyecto: la instalación no contempla
+node-exporter como proceso independiente. Grafana Alloy — activo y confirmado en los 4 nodos — incluye el
+componente <code>prometheus.exporter.unix</code>, que replica de forma nativa la funcionalidad completa de
+node-exporter y expone las métricas de nodo en el puerto 17935. No existe brecha de monitoreo de
+infraestructura.
+</div>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base — homogénea entre roles</h2>
+<p>El JobManager y los 3 TaskManagers comparten el mismo stack de software (Rocky Linux 10.1/10.2, OpenJDK 17,
+Podman 5.8.2), consistente con el patrón observado en el clúster MinIO del mismo proyecto. Esta homogeneidad
+reduce el riesgo de comportamientos divergentes entre nodos del mismo rol.</p>
+
+<h2 class="sub">4.2 Clúster Flink — quórum y capacidad</h2>
+<p>La API REST del JobManager confirma los 3 TaskManagers registrados, con 6 slots totales y 6 disponibles
+(ningún job desplegado todavía). La versión de Flink (2.2.1) coincide entre la configuración esperada por el
+script y la reportada por la API, sin discrepancias de versión que requieran confirmación formal — a
+diferencia de lo observado en MinIO.</p>
+
+<h2 class="sub">4.3 Persistencia hacia MinIO (S3)</h2>
+<p>Los 4 nodos alcanzan el endpoint de MinIO con HTTP 200, confirmando que la ruta de red para checkpoints
+está disponible. Sin embargo, no se encontró una configuración explícita del intervalo de checkpoint en
+<code>flink-conf.yaml</code>, por lo que no puede confirmarse aún cuánto estado se perdería ante una falla de
+un TaskManager una vez el clúster procese datos reales.</p>
+
+<h2 class="sub">4.4 Contradicción de conectividad TaskManager ↔ JobManager (hallazgo crítico a aclarar)</h2>
+<p>El hallazgo más relevante del informe es una contradicción interna: el Módulo 6 confirma que la API REST
+del JobManager responde correctamente a los 3 TaskManagers (con datos de slots y registro consistentes), pero
+el Módulo 10 — que prueba el puerto 8081 de forma directa — falla en los 3 TaskManagers. Esto sugiere que el
+método de prueba de puerto usado en el Módulo 10 no representa el mismo camino de red que usa la consulta
+HTTP real, o bien que existe una regla de firewall/ACL asimétrica que permite el tráfico HTTP de aplicación
+pero bloquea el chequeo directo del socket. No se debe interpretar automáticamente como una falla real de
+conectividad, pero tampoco se debe descartar sin confirmación de red — ver acción obligatoria en la sección 5.</p>
+
+<h2 class="sub">4.5 Gestión de ciclo de vida — systemd + Podman</h2>
+<p>A diferencia de MinIO —donde las unidades <code>minio-N.service</code> fueron identificadas correctamente—,
+en Flink el script no logró confirmar el nombre real de la unidad systemd que gestiona cada contenedor, y en
+los 3 TaskManagers el propio chequeo de systemd terminó en segmentation fault. Esto deja sin confirmar si los
+servicios de Flink se reiniciarán automáticamente ante un reinicio de host, lo cual es relevante para la
+continuidad del procesamiento en tiempo real.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PASO A PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA — Aclarar la conectividad de puertos 8081/6123 entre TaskManagers y JobManager</b></p>
+<ol>
+<li>Validar con el equipo de red las reglas de firewall/ACL vigentes entre proc01-03 y pbigd-plat-apps01 en los puertos 8081 y 6123.</li>
+<li>Confirmar en el código del script qué método usa el Módulo 10 para probar el puerto, y comparar contra el método usado por la consulta REST del Módulo 6.</li>
+<li>Repetir la prueba de conectividad de forma independiente (p. ej. <code>curl -v</code> y <code>nc -zv</code> desde cada TaskManager) para descartar el falso positivo.</li>
+</ol>
+
+<p><b>OBLIGATORIA — Resolver el fallo de systemd en los TaskManagers y confirmar autoarranque</b></p>
+<ol>
+<li>Confirmar el nombre real de la unidad systemd que gestiona cada contenedor Flink (JobManager y TaskManagers).</li>
+<li>Diagnosticar el segmentation fault reproducible de <code>systemctl --user is-active</code> bajo <code>sudo -u</code> en los 3 TaskManagers (posible incompatibilidad podman + systemd --user + sudo).</li>
+<li>Confirmar que las unidades correspondientes están en estado <code>enabled</code> para sobrevivir un reinicio de host.</li>
+</ol>
+
+<p><b>OBLIGATORIA — Revisar líneas ERROR/Exception/FATAL en logs del JobManager</b></p>
+<p>Revisar el detalle de las 6 líneas detectadas antes de desplegar jobs de streaming de producción, para descartar errores de arranque relevantes.</p>
+
+<p><b>RECOMENDADA — Configurar intervalo explícito de checkpoints</b></p>
+<p>Definir en <code>flink-conf.yaml</code> un intervalo de checkpoint hacia MinIO (S3), sugerido ≤60s, antes del primer job de producción.</p>
+
+<p><b>OPCIONAL — Ajustes menores</b></p>
+<ul>
+<li>Definir JAVA_HOME en el perfil del usuario admapl.</li>
+<li>Revisar en el script la ruta de lectura de <code>numberOfTaskSlots</code> para Flink 2.2.1.</li>
+<li>Confirmar creación automática de <code>/data/flink/checkpoints</code> y <code>/data/flink/savepoints</code> al ejecutar el primer job real.</li>
+</ul>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El Clúster Flink Principal de la plataforma Big Data de la Cooperativa Jardín Azuayo ha completado la
+validación de implementación con resultado <b>APROBADO CON OBSERVACIONES</b>. El quórum del clúster, la
+capacidad de slots, la conectividad hacia MinIO para checkpoints y la operación de la API REST están
+correctamente implementados en los 4 nodos.</p>
+
+<p>Se identificó una inconsistencia de conectividad entre TaskManagers y JobManager en los puertos 8081/6123
+que contradice la evidencia de la propia API REST del clúster, y un fallo reproducible del chequeo de
+autoarranque por systemd en los 3 TaskManagers. Ninguno de los dos hallazgos indica hoy una falla operativa
+confirmada del clúster, pero ambos deben aclararse formalmente antes de confiar en el comportamiento del
+clúster ante un failover real de nodos.</p>
+
+<p><b>Las observaciones identificadas no bloquean la continuidad operativa actual del clúster, pero las 3
+acciones obligatorias (conectividad TM↔JM, autoarranque systemd, revisión de errores en logs del JobManager)
+deben resolverse y revalidarse antes del primer despliegue de jobs de streaming de producción.</b></p>
+
+<table width="680">
+<tr><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Elaborado por</td><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Revisado por</td></tr>
+<tr><td>Bluepoint AI — Consultoría Big Data<br/>Proyecto Big Data — Cooperativa Jardín Azuayo</td><td>Equipo de Infraestructura<br/>Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 07 de julio de 2026</td><td>Fecha: ______________________</td></tr>
+</table>
+
+
+</body></html>

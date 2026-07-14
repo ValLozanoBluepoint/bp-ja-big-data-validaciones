@@ -1,0 +1,146 @@
+
+  ██████╗ ██╗     ██╗   ██╗███████╗██████╗  ██████╗ ██╗███╗   ██╗████████╗
+  ██╔══██╗██║     ██║   ██║██╔════╝██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝
+  ██████╔╝██║     ██║   ██║█████╗  ██████╔╝██║   ██║██║██╔██╗ ██║   ██║
+  ██╔══██╗██║     ██║   ██║██╔══╝  ██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║
+  ██████╔╝███████╗╚██████╔╝███████╗██║     ╚██████╔╝██║██║ ╚████║   ██║
+  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝
+
+  Cooperativa Jardín Azuayo — Proyecto Big Data
+  Cluster: Kafka Principal (DC Principal)
+  Nodo actual: pbigd-kaf03  (rol detectado: pbigd-kaf03)
+  Bootstrap server: localhost:9092
+  Fecha/Hora: 2026-07-09 16:08:25 -05
+
+
+══════════════════════════════════════════════════════
+  1. SISTEMA OPERATIVO Y RUNTIME
+══════════════════════════════════════════════════════
+[INFO] 1.1 Verificando sistema operativo...
+[PASS] SO: Rocky Linux — 10.2 (Red Quartz)
+[INFO] 1.2 Versión del kernel...
+[PASS] Kernel: 6.12.0-124.55.1.el10_1.x86_64
+[INFO] 1.3 Verificando Podman...
+[PASS] Podman 5.8.2 instalado (>= 5.x requerido)
+[INFO] 1.4 Verificando systemd...
+[PASS] systemd: running
+[INFO] 1.5 Verificando sincronización NTP (crítico para consenso KRaft/Raft)...
+[PASS] NTP sincronizado
+[INFO] 1.6 Verificando naming convention del nodo...
+[PASS] Hostname correcto: pbigd-kaf03 (patrón pbigd-kaf<NN>)
+
+══════════════════════════════════════════════════════
+  2. ESTRUCTURA DE DIRECTORIOS Y PERSISTENCIA
+══════════════════════════════════════════════════════
+[INFO] Verificando /data/kafka ...
+[PASS] Directorio /data/kafka existe — owner: UNKNOWN:UNKNOWN — perms: 775 — uso: 2.6G/100G usado (3%)
+[PASS] /data/kafka filesystem: xfs (no overlay)
+[INFO] Verificando /var/log/kafka ...
+[PASS] Directorio /var/log/kafka existe — owner: UNKNOWN:UNKNOWN — perms: 775 — uso: 651M/30G usado (3%)
+[INFO] Verificando partición /data independiente...
+[PASS] Partición /data montada en: /data
+[INFO] Verificando /opt/kafka dentro del contenedor...
+[PASS] KAFKA_HOME (/opt/kafka) presente dentro del contenedor kafka-broker-03
+
+══════════════════════════════════════════════════════
+  3. SERVICIO SYSTEMD Y CONTENEDOR PODMAN
+══════════════════════════════════════════════════════
+[INFO] 3.1 Verificando unidades systemd de Kafka...
+[WARN] No se encontraron unidades systemd con nombre 'kafka' — verificar manualmente
+[INFO] 3.2 Verificando contenedor Podman Kafka...
+[PASS] Contenedor: kafka-broker-03 — estado: Up 26 hours — imagen: docker.io/apache/kafka:4.0.1
+[INFO] 3.3 Verificando naming convention de contenedores...
+[PASS] Naming convention correcta: kafka-broker-03
+[INFO] 3.4 Verificando política de reinicio...
+[WARN] Política de reinicio: no (recomendado: always o gestión via systemd)
+
+══════════════════════════════════════════════════════
+  4. CONECTIVIDAD DE RED
+══════════════════════════════════════════════════════
+[INFO] 4.1 Puerto broker / client (9092)...
+[PASS] Puerto 9092 (Broker / Client API) ESCUCHANDO localmente
+[INFO] 4.2 Puerto controller KRaft (9093)...
+[PASS] Puerto 9093 (Controller KRaft) ESCUCHANDO localmente
+[INFO] 4.3 Conectividad entre nodos del cluster...
+[PASS] Ping a pbigd-kaf01: OK (rtt: 0.311ms)
+[PASS] TCP pbigd-kaf01:9092 alcanzable
+[PASS] TCP pbigd-kaf01:9093 (controller) alcanzable
+[PASS] Ping a pbigd-kaf02: OK (rtt: 0.177ms)
+[PASS] TCP pbigd-kaf02:9092 alcanzable
+[PASS] TCP pbigd-kaf02:9093 (controller) alcanzable
+
+══════════════════════════════════════════════════════
+  5. VALIDACIÓN FUNCIONAL (KRaft y topics)
+══════════════════════════════════════════════════════
+[INFO] Contenedor Kafka detectado: kafka-broker-03
+[INFO] 5.1 Verificando que el cluster opera en modo KRaft (sin Zookeeper)...
+[PASS] Sin puerto 2181 (Zookeeper) activo — consistente con modo KRaft
+[PASS] Sin proceso Zookeeper dentro del contenedor
+[INFO] 5.2 Verificando estado del quórum de metadata (KRaft)...
+[PASS] Quórum KRaft respondiendo — detalle:
+[INFO] ClusterId:              7HmRjdAiQrSj8G_3zYdgfw
+LeaderId:               3
+LeaderEpoch:            2
+HighWatermark:          188936
+MaxFollowerLag:         0
+MaxFollowerLagTimeMs:   0
+CurrentVoters:          [{"id": 3, "directoryId": "DSMZxspfQyWPBCP2uo_-mg", "endpoints": ["CONTROLLER://pbigd-kaf03:9093"]}]
+CurrentObservers:       []
+[INFO] 5.3 Verificando brokers registrados en el cluster...
+[INFO] Brokers detectados respondiendo a API versions: 1
+[FAIL] Brokers activos insuficientes: 1 (se esperan 3 en DC Principal)
+[INFO] 5.4 Ejecutando ciclo de prueba de topic: crear → producir → consumir → borrar...
+[FAIL] Creación de topic de prueba: FALLO — Error while executing topic command : Unable to replicate the partition 3 time(s): The target replication factor of 3 cannot be reached because only 1 broker(s) are registered.
+[2026-07-09 21:08:32,235] ERROR org.apache.kafka.common.errors.InvalidReplicationFactorException: Unable to replicate the partition 3 time(s): The target replication factor of 3 cannot be reached because only 1 broker(s) are registered.
+ERROR
+
+══════════════════════════════════════════════════════
+  6. RESILIENCIA Y ESTADO DEL CLUSTER
+══════════════════════════════════════════════════════
+[INFO] 6.1 Verificando particiones sub-replicadas en el cluster...
+[PASS] Sin particiones sub-replicadas detectadas
+[INFO] 6.2 Verificando quórum de brokers (3/3 requerido en Principal)...
+[FAIL] Quórum de brokers: 1/3 — cluster degradado
+[INFO] 6.3 Estado de Kafka en cada nodo del cluster (TCP broker port)...
+[PASS] Nodo pbigd-kaf01: puerto 9092 alcanzable — UP
+[PASS] Nodo pbigd-kaf02: puerto 9092 alcanzable — UP
+[PASS] Nodo pbigd-kaf03: puerto 9092 alcanzable — UP
+[PASS] Nodos del cluster Principal: 3/3 — completo
+
+══════════════════════════════════════════════════════
+  7. LOGS Y OBSERVABILIDAD
+══════════════════════════════════════════════════════
+[INFO] 7.1 Verificando logs en /var/log/kafka...
+[PASS] Logs en /var/log/kafka: 7 archivo(s) — último modificado: 2026-07-09 16:08:34
+[PASS] Sin errores críticos en los últimos 100 logs del contenedor
+[INFO] 7.3 Verificando Grafana Alloy (agente de observabilidad)...
+[PASS] Alloy: alloy.service — activo
+[INFO] 7.4 Verificando node-exporter...
+[WARN] node-exporter: no detectado en puerto 9100 — verificar despliegue
+
+══════════════════════════════════════════════════════
+  8. VERSIÓN DE KAFKA Y JAVA
+══════════════════════════════════════════════════════
+[INFO] 8.1 Verificando versión de Kafka...
+[PASS] Versión Kafka: 4.0.1 (esperada: 4.0.1)
+[INFO] 8.2 Verificando versión de Java dentro del contenedor...
+[INFO] JVM en contenedor Kafka: openjdk version "21.0.8" 2025-07-15 LTS
+[PASS] JDK 21 compatible con Kafka 4.x (mínimo Java 17) — no es la versión homologada (25) pero es funcional
+
+══════════════════════════════════════════════════════
+  RESUMEN DE VALIDACIÓN
+══════════════════════════════════════════════════════
+  Cluster       : Kafka Principal (DC Principal)
+  Nodo          : pbigd-kaf03
+  Nodos         : pbigd-kaf01 pbigd-kaf02 pbigd-kaf03
+  Fecha         : 2026-07-09 16:08:36 -05
+  Total checks  : 40
+  PASS          : 34
+  FAIL          : 3
+  WARN          : 3
+
+  Nota de alcance: esta validación cubre únicamente el cluster Kafka.
+  La integración Kafka↔Flink se valida por separado (fuera de este alcance).
+
+  ❌  VALIDACIÓN FALLÓ: 3 ERROR(ES) | 3 ADVERTENCIA(S)
+      Corregir errores antes de operar el cluster en producción.

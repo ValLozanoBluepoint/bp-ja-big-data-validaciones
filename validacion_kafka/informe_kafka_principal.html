@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Kafka Principal</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-fail{background:#f7d6d6;color:#8a1f1f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Clúster Kafka — Backbone de eventos (KRaft, sin Zookeeper)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Kafka Principal (DC Principal)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-kaf01</code> · <code>pbigd-kaf02</code> · <code>pbigd-kaf03</code> (rol: broker KRaft, mismo rol en los 3)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>Apache Kafka 4.0.1 (modo KRaft, sin Zookeeper)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.2 (Red Quartz) · Podman 5.8.2 · systemd · OpenJDK 21.0.8 (funcional, no homologado)</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>09 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-fail">✖ NO APTO / RECHAZADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se realizó la validación de la implementación del Clúster Kafka Principal del proyecto Big Data de la
+Cooperativa Jardín Azuayo (proyecto Bluepoint). La validación se ejecutó el 09 de julio de 2026 entre las
+16:07 y las 16:08 en los 3 nodos del clúster (<code>pbigd-kaf01</code>, <code>pbigd-kaf02</code>,
+<code>pbigd-kaf03</code>), todos con el mismo rol de broker KRaft, mediante el script
+<code>validate_kafka_principal.sh</code>, cubriendo 8 módulos de verificación con 40 puntos de control por
+nodo (120 en total).</p>
+
+<p>La infraestructura base (sistema operativo, Podman, persistencia en disco, red y observabilidad) está
+correctamente desplegada y es homogénea en los 3 nodos. Sin embargo, el clúster <b>no opera como un clúster
+KRaft de 3 nodos</b>: cada broker responde de forma individual, pero solo se reconoce a sí mismo dentro del
+quórum de metadata, y la creación de un topic con factor de replicación 3 falla porque nunca hay más de 1
+broker registrado. La causa raíz, confirmada con evidencia (ver §3 y §4.4), es que los 3 nodos se
+formatearon con un <code>cluster.id</code> distinto cada uno, por lo que operan como 3 mini-clústeres
+aislados de 1 nodo en lugar de un único clúster de 3. Esto impide la función core validada (alta
+disponibilidad con RF=3) y bloquea el paso a producción hasta remediarse.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">102</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">9</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">9</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Los 3 nodos cumplen el mismo rol (broker KRaft) y ejecutan exactamente el mismo módulo de checks. Los
+resultados fueron <b>idénticos en los 3 nodos</b> en todas las verificaciones — no se observó divergencia
+entre ellos. Las verificaciones de conectividad entre pares (ping / TCP 9092 / TCP 9093 hacia los otros 2
+nodos, sección 4.3 del script) se muestran consolidadas en una sola fila por tipo de chequeo, dado que las 6
+combinaciones nodo–vecino evaluadas por sección resultaron uniformemente PASS.</p>
+
+<table width="680">
+<tr><th width="330">Verificación</th><th>pbigd-kaf01</th><th>pbigd-kaf02</th><th>pbigd-kaf03</th></tr>
+<tr><td>SO: Rocky Linux 10.2 (Red Quartz)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Kernel 6.12.0-124.x.el10_1.x86_64</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Podman ≥5.x (5.8.2 instalado)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>systemd: running</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado (crítico para consenso KRaft)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Naming convention hostname (pbigd-kaf&lt;NN&gt;)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>/data/kafka existe (owner/perms/uso disco)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>/data/kafka filesystem xfs (no overlay)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>/var/log/kafka existe</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Partición /data independiente montada</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>KAFKA_HOME (/opt/kafka) dentro del contenedor</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Unidad systemd con nombre 'kafka'</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Contenedor Podman Kafka en estado Up (kafka-broker-0N)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Naming convention del contenedor (kafka-broker-N)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Política de reinicio del contenedor (recomendado: always)</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Puerto 9092 (broker/client) escuchando localmente</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto 9093 (controller KRaft) escuchando localmente</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Ping a los otros 2 nodos del clúster</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>TCP 9092 a los otros 2 nodos del clúster</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>TCP 9093 (controller) a los otros 2 nodos del clúster</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin puerto 2181 (Zookeeper) activo — consistente con KRaft</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin proceso Zookeeper dentro del contenedor</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Quórum KRaft respondiendo (kafka-metadata-quorum.sh)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Brokers registrados ≥3 en el clúster</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Ciclo de topic de prueba: crear → producir → consumir → borrar</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>Particiones sub-replicadas</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Quórum de brokers 3/3 requerido en Principal</td><td class="fail">FAIL</td><td class="fail">FAIL</td><td class="fail">FAIL</td></tr>
+<tr><td>TCP broker port (9092) en cada nodo del clúster</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Nodos del clúster Principal 3/3 — completo (capa TCP)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Logs presentes en /var/log/kafka</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin errores críticos en últimos 100 logs del contenedor</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Grafana Alloy activo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter puerto 9100</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Versión Kafka: 4.0.1 (esperada: 4.0.1)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>JDK dentro del contenedor compatible con Kafka 4.x</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total por nodo (según resumen del propio script): 40 checks / 34 PASS / 3 FAIL / 3 WARN —
+idéntico en los 3 nodos. Filas consolidadas: conectividad entre pares (6 combinaciones nodo–vecino en
+sección 4.3, 3 combinaciones en sección 6.3), todas PASS.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="55">Tipo</th><th width="190">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Brokers activos insuficientes (1 de 3 esperados)</td>
+<td><code>kafka-broker-api-versions.sh</code> reporta 1 solo broker respondiendo a API versions, en los 3
+nodos evaluados por igual. Es el síntoma central: los 3 nodos no se ven entre sí como parte del mismo
+clúster.</td>
+<td><b>OBLIGATORIO</b> — ver acción obligatoria #1 en §5 (reformatear KRaft storage con <code>cluster.id</code> compartido).</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Creación de topic de prueba falla (RF=3 no alcanzable)</td>
+<td>En los 3 nodos: <code>InvalidReplicationFactorException: Unable to replicate the partition 3 time(s):
+The target replication factor of 3 cannot be reached because only 1 broker(s) are registered.</code> Es
+consecuencia directa del hallazgo anterior — Kafka rechaza correctamente el topic porque no hay 3 brokers
+físicos donde ubicar las réplicas.</td>
+<td><b>OBLIGATORIO</b> — se resuelve con la misma acción obligatoria #1 en §5; no requiere remediación
+independiente.</td>
+</tr>
+<tr>
+<td class="fail">FAIL</td>
+<td>Quórum de brokers 1/3 — clúster degradado</td>
+<td><code>kafka-metadata-quorum.sh describe --status</code> confirma 1/3 en los 3 nodos. El campo
+<code>CurrentVoters</code> de cada nodo lista únicamente su propio id (kaf01→id 1, kaf02→id 2, kaf03→id 3),
+nunca a los otros 2 — cada nodo opera como un mini-clúster aislado de 1 solo miembro.</td>
+<td><b>OBLIGATORIO</b> — mismo origen y misma acción obligatoria #1 en §5.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Sin unidad systemd con nombre 'kafka'</td>
+<td>El script busca unidades systemd llamadas literalmente 'kafka' y no las encuentra en ninguno de los 3
+nodos; el contenedor se administra directamente vía Podman sin una unidad systemd visible que lo supervise.</td>
+<td><b>OBLIGATORIO</b> — confirmar el mecanismo real de arranque persistente (unidad systemd equivalente o
+gestión Podman con reinicio automático) antes de producción.</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>Política de reinicio del contenedor: 'no'</td>
+<td>En los 3 nodos, <code>podman inspect</code> reporta política de reinicio <code>no</code>. Ante un
+crash del proceso Kafka o un reinicio del host, el contenedor no se recupera solo.</td>
+<td><b>OBLIGATORIO</b> — ver acción obligatoria #2 en §5 (configurar <code>always</code> o gestión systemd
+equivalente).</td>
+</tr>
+<tr>
+<td class="warn">WARN</td>
+<td>node-exporter no detectado (puerto 9100)</td>
+<td>El agente de métricas de nodo no responde en :9100 en ninguno de los 3 nodos.</td>
+<td>Ver nota aclaratoria a continuación — no bloqueante, mismo tratamiento que en MinIO y Flink.</td>
+</tr>
+<tr>
+<td class="na">INFO</td>
+<td>JDK 21 funcional, no es la versión homologada (25)</td>
+<td>Los 3 nodos corren OpenJDK 21.0.8 dentro del contenedor. El script lo marca PASS por ser compatible con
+Kafka 4.x (mínimo Java 17), pero no coincide con la versión homologada del proyecto (Java 25).</td>
+<td><b>RECOMENDADO</b>: planificar la actualización a JDK 25 en una ventana de mantenimiento, sin
+bloquear el uso actual.</td>
+</tr>
+<tr>
+<td class="na">INFO</td>
+<td>Defecto de script — línea suelta "error" en salida de <code>pbigd-kaf02</code> (sección 8.2)</td>
+<td>Solo en el log de <code>pbigd-kaf02</code>, entre la línea <code>[INFO] JVM en contenedor Kafka: ...</code>
+y el <code>[PASS]</code> siguiente, aparece una línea suelta <code>error</code> sin prefijo de nivel. El
+valor real de la JVM sí se capturó correctamente (el PASS subsiguiente lo usa), por lo que no afecta el
+resultado del check — es ruido residual del fallback <code>|| echo "error"</code> en la línea 561 de
+<code>validate_kafka_principal.sh</code>.</td>
+<td><b>OPCIONAL</b>: revisar en el script por qué el fallback de captura de <code>java -version</code>
+imprime ruido adicional al stream de salida sin afectar el resultado; no es un hallazgo de infraestructura.</td>
+</tr>
+</table>
+
+<div class="note">
+<b>Nota aclaratoria — contradicción entre alcanzabilidad TCP y registro en el quórum de brokers</b><br/>
+La sección 6.3 del propio script concluye <code>[PASS] Nodos del clúster Principal: 3/3 — completo</code>,
+verificando únicamente que el puerto TCP 9092 responde en los 3 nodos. En el mismo run, las secciones 5.3 y
+6.2 reportan <code>[FAIL] Brokers activos insuficientes: 1</code> y <code>[FAIL] Quórum de brokers: 1/3</code>.
+Esto no se resuelve descartando ninguno de los dos resultados: ambos son correctos y describen capas
+distintas. El puerto 9092 está efectivamente arriba y aceptando conexiones TCP en los 3 nodos (cada broker
+individual funciona), pero la alcanzabilidad de un puerto no implica pertenencia al mismo clúster lógico.
+La causa confirmada (ver <code>diagnostico_quorum_incompleto.md</code>) es que cada nodo se formateó con un
+<code>cluster.id</code> distinto (<code>ppGWqJhuQNSaezGXt4ECAg</code> en kaf01,
+<code>VP6nnxobRa-pAdN7NtBFbQ</code> en kaf02, <code>7HmRjdAiQrSj8G_3zYdgfw</code> en kaf03) — Kafka nunca
+permite que nodos con <code>cluster.id</code> distinto se unan al mismo quórum, aunque estén en red y
+respondiendo individualmente. El hallazgo de quórum permanece como FAIL real en la matriz; no se trata de
+un falso positivo.
+</div>
+
+<div class="note">
+<b>Nota aclaratoria — node-exporter (puerto 9100)</b><br/>
+Durante la ejecución del script se generó una advertencia indicando que node-exporter no fue detectado en
+el puerto 9100. Esta advertencia queda desestimada y reclasificada como informativa, en línea con lo
+confirmado en las validaciones de MinIO y Flink del mismo proyecto: la instalación no contempla
+node-exporter como proceso independiente. Grafana Alloy — activo y confirmado en los 3 nodos — incluye el
+componente <code>prometheus.exporter.unix</code>, que replica de forma nativa la funcionalidad completa de
+node-exporter. No existe brecha de monitoreo de infraestructura.
+</div>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base — homogénea entre los 3 nodos</h2>
+<p>Los 3 brokers comparten el mismo stack de software (Rocky Linux 10.2, Podman 5.8.2, systemd activo, NTP
+sincronizado), consistente con el patrón observado en MinIO y Flink del mismo proyecto. La sincronización
+NTP es especialmente relevante aquí: el consenso KRaft usa Raft, sensible a desfases de reloj, y los 3
+nodos la confirman correcta — descarta esa hipótesis como causa de los fallos de quórum.</p>
+
+<h2 class="sub">4.2 Persistencia y almacenamiento</h2>
+<p><code>/data/kafka</code> existe en los 3 nodos sobre filesystem <code>xfs</code> (no overlay), montado
+en una partición <code>/data</code> independiente del disco raíz — el diseño de persistencia está
+correctamente implementado y protege contra la pérdida de datos ante recreación del contenedor.</p>
+
+<h2 class="sub">4.3 Red y conectividad</h2>
+<p>La capa de red está completamente sana: los 3 nodos se alcanzan entre sí por ping y por TCP en los
+puertos 9092 (broker) y 9093 (controller). Esto confirma que ningún firewall ni regla de red está
+bloqueando el tráfico entre nodos — el problema de quórum no es de conectividad, es de identidad de
+clúster (ver §4.4).</p>
+
+<h2 class="sub">4.4 Quórum KRaft y funcionalidad — causa raíz del NO APTO</h2>
+<p>El hallazgo central de este informe es que los 3 nodos operan como 3 clústeres KRaft aislados de 1
+miembro cada uno, en lugar de un único clúster de 3. La evidencia es consistente en las 3 fuentes: (a) cada
+nodo reporta solo 1 broker registrado, (b) cada nodo tiene un <code>ClusterId</code> distinto en la salida
+de <code>kafka-metadata-quorum.sh</code>, y (c) <code>CurrentVoters</code> en cada nodo lista únicamente su
+propio id. La causa es que cada nodo se formateó de forma independiente con <code>kafka-storage.sh format</code>,
+generando su propio UUID de clúster en vez de compartir uno solo — <code>node.id</code> y
+<code>controller.quorum.voters</code> están correctamente configurados en los 3 (se descartó esa hipótesis),
+pero eso no importa si el <code>cluster.id</code> no coincide. Esto impide la función core del diseño:
+un clúster de 3 nodos con RF=3 para tolerar la caída de un broker sin pérdida de disponibilidad.</p>
+
+<h2 class="sub">4.5 Ciclo de vida del contenedor</h2>
+<p>El contenedor Kafka está corriendo y saludable en los 3 nodos (17-26 horas de uptime), pero sin una
+unidad systemd que lo supervise y con política de reinicio <code>no</code>. Esto significa que, incluso
+una vez resuelto el problema de quórum, un crash del proceso o un reinicio del host dejaría el clúster
+caído hasta una intervención manual — un riesgo operativo independiente del hallazgo de quórum que debe
+cerrarse antes de producción.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PASO A PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA #1 — Reformatear el storage KRaft de los 3 nodos con un único cluster.id compartido</b></p>
+<ol>
+<li>Generar un solo UUID de clúster (una sola vez, desde cualquier nodo):
+<code>kafka-storage.sh random-uuid</code></li>
+<li>Confirmar que no hay datos reales en los topics actuales (el clúster nunca llegó a operar con RF=3).</li>
+<li>Detener los 3 contenedores Kafka (<code>kafka-broker-01</code>, <code>-02</code>, <code>-03</code>).</li>
+<li>Limpiar el contenido de <code>/data/kafka</code> en los 3 nodos.</li>
+<li>Reformatear los 3 nodos con el mismo UUID:
+<code>kafka-storage.sh format -t &lt;UUID_COMPARTIDO&gt; -c /opt/kafka/config/server.properties</code></li>
+<li>Reiniciar los 3 contenedores.</li>
+<li>Re-ejecutar <code>validate_kafka_principal.sh</code> en los 3 nodos: <code>CurrentVoters</code> debe
+mostrar los 3 ids, "Brokers detectados" debe ser 3, y la creación del topic de prueba con RF=3 debe pasar.</li>
+</ol>
+
+<p><b>OBLIGATORIA #2 — Configurar arranque persistente y auto-recuperación del contenedor</b></p>
+<ol>
+<li>Confirmar o crear la unidad systemd que debe supervisar cada contenedor Kafka (o adoptar
+<code>podman generate systemd</code> sobre los contenedores actuales).</li>
+<li>Configurar política de reinicio <code>always</code> a nivel de Podman o <code>Restart=always</code> a
+nivel de la unidad systemd, en los 3 nodos.</li>
+<li>Confirmar que la unidad queda <code>enabled</code> para sobrevivir un reinicio de host.</li>
+</ol>
+
+<p><b>RECOMENDADA — Alinear JDK a la versión homologada</b></p>
+<p>Actualizar de OpenJDK 21.0.8 a Java 25 (versión homologada del proyecto) en los 3 nodos, en una ventana
+de mantenimiento — Kafka 4.x es funcional hoy con JDK 21, no es bloqueante.</p>
+
+<p><b>OPCIONAL — Ajustes menores</b></p>
+<ul>
+<li>Revisar el fallback de captura de <code>java -version</code> en la línea 561 de
+<code>validate_kafka_principal.sh</code> para eliminar el ruido "error" residual observado en <code>pbigd-kaf02</code>.</li>
+</ul>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El Clúster Kafka Principal de la plataforma Big Data de la Cooperativa Jardín Azuayo completó la
+validación de implementación con resultado <b>NO APTO / RECHAZADO</b>. La infraestructura base — sistema
+operativo, Podman, persistencia en disco, red y observabilidad — está correctamente desplegada y es
+homogénea en los 3 nodos, y el veredicto negativo declarado por el propio script de validación se confirma
+con evidencia sólida, no con un falso positivo.</p>
+
+<p>El hallazgo bloqueante es que los 3 nodos nunca se unieron al mismo clúster KRaft: cada uno se formateó
+con un <code>cluster.id</code> propio, por lo que operan como 3 clústeres aislados de 1 miembro cada uno.
+Esto impide la función core del diseño — un clúster de 3 brokers con factor de replicación 3 — y se
+confirma con el rechazo consistente de Kafka a crear topics con RF=3 en los 3 nodos. A esto se suma la
+ausencia de una política de reinicio y de supervisión systemd, que deja al clúster sin auto-recuperación
+ante una caída futura.</p>
+
+<p><b>El clúster no puede considerarse apto para producción hasta reformatear el storage KRaft de los 3
+nodos con un cluster.id compartido y confirmar, mediante re-validación, un quórum de 3/3 brokers con
+creación exitosa de un topic RF=3; adicionalmente debe configurarse arranque persistente y política de
+reinicio always antes de operar el clúster con datos reales.</b></p>
+
+<table width="680">
+<tr><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Elaborado por</td><td style="background:#1e2a8a;color:#fff;font-weight:bold;">Revisado por</td></tr>
+<tr><td>Bluepoint AI — Consultoría Big Data<br/>Proyecto Big Data — Cooperativa Jardín Azuayo</td><td>Equipo de Infraestructura<br/>Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 09 de julio de 2026</td><td>Fecha: ______________________</td></tr>
+</table>
+
+
+</body></html>
