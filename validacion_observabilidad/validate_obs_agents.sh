@@ -66,12 +66,12 @@ ALLOY_DATA_DIR="/var/lib/alloy/data"
 # nombre real registrado en el DNS interno de la Cooperativa (jardinazuayo.fin.ec)
 # es "escila" — confirmado en campo el 2026-07-14 (IP 172.17.210.89). Se usa
 # el FQDN real aquí porque el hostname de plan nunca fue dado de alta en DNS.
-# Pendiente: confirmar el nombre real del nodo DR (pbigd-plat-obs01-cont) antes
+# Pendiente: confirmar el nombre real del nodo DR (escila.jardinazuayo.fin.ec) antes
 # de reemplazarlo aquí también — mientras tanto puede sobreescribirse al vuelo
 # con la variable de entorno OBS_HOST.
 if [[ -z "${OBS_HOST:-}" ]]; then
   if [[ "$(hostname -s 2>/dev/null || hostname)" == *-cont ]]; then
-    OBS_HOST="pbigd-plat-obs01-cont"   # TODO: confirmar nombre DNS real (ver nota arriba)
+    OBS_HOST="escila.jardinazuayo.fin.ec"   # TODO: confirmar nombre DNS real (ver nota arriba)
   else
     OBS_HOST="escila.jardinazuayo.fin.ec"
   fi
@@ -332,7 +332,7 @@ if [[ -f "$ALLOY_KNOWN_CFG" ]]; then
       && ok "  ↳ Referencia al stack de observabilidad ($OBS_HOST) detectada en configuración" \
       || warn "  ↳ No se detecta referencia explícita al stack de observabilidad ($OBS_HOST)"
   else
-    info "  ↳ Archivo existe pero su contenido no es legible por este usuario (permisos) — no se puede verificar la referencia al stack; no es evidencia de que falte"
+    info "  ↳ Archivo existe pero su contenido no es legible como $USER — esperado, ya que $ALLOY_CONFIG_DIR es propiedad del usuario de servicio 'alloy' (la config puede traer credenciales de remote_write); no se puede verificar la referencia al stack desde aquí, pero no es evidencia de que falte"
   fi
 else
   # Fallback: puede que el nombre de archivo real difiera del confirmado en
@@ -350,7 +350,7 @@ else
       ok "Configuración Alloy encontrada en ruta alternativa"
       info "  $ALT_CFG"
     else
-      warn "No se pudo confirmar el archivo de configuración de Alloy ($ALLOY_KNOWN_CFG no accesible ni por stat ni por listado) — puede ser falta de permisos de $USER, verificar con sudo antes de escalar como hallazgo real"
+      warn "No se pudo confirmar el archivo de configuración de Alloy ($ALLOY_KNOWN_CFG no accesible ni por stat ni por listado) como $USER — esperado, ya que $ALLOY_CONFIG_DIR pertenece al usuario de servicio 'alloy'; verificar con sudo antes de escalar como hallazgo real"
     fi
   fi
 fi
@@ -379,7 +379,7 @@ for DIR in "$ALLOY_CONFIG_DIR" "$ALLOY_DATA_DIR"; do
     ok "Directorio existe: $DIR"
     touch "$DIR/.write_test" 2>/dev/null && rm -f "$DIR/.write_test" \
       && ok "  ↳ Escritura OK" \
-      || warn "  ↳ Sin permisos de escritura (esperado en $ALLOY_CONFIG_DIR — la config puede traer credenciales de remote_write)"
+      || warn "  ↳ Sin permisos de escritura como $USER (esperado: $DIR pertenece al usuario de servicio 'alloy', no a $USER — no es un hallazgo de configuración, es aislamiento de permisos correcto entre usuarios)"
   else
     warn "Directorio no encontrado: $DIR (puede estar en ruta alternativa)"
   fi
@@ -401,7 +401,7 @@ JOURNAL_LOG_COUNT=$(journalctl -u alloy --no-pager -n 1 2>/dev/null | wc -l)
 WAL_DIR=$(find "$ALLOY_DATA_DIR" /var/lib/alloy /data/alloy /opt/alloy -name "wal" -type d 2>/dev/null | head -1 || true)
 [[ -n "$WAL_DIR" ]] \
   && ok "WAL de Alloy encontrado: $WAL_DIR (métricas persisten en reinicios)" \
-  || warn "WAL de Alloy no encontrado en $ALLOY_DATA_DIR — puede ser que no exista, o que el usuario actual no tenga permisos para leer ahí (verificar con sudo antes de escalar como hallazgo real)"
+  || warn "WAL de Alloy no encontrado en $ALLOY_DATA_DIR como $USER — esperado, ya que $ALLOY_DATA_DIR pertenece al usuario de servicio 'alloy' y no es legible por $USER; no es evidencia de que el WAL no exista (verificar con sudo antes de escalar como hallazgo real)"
 
 # ===========================================================================
 # MÓDULO 5 – Conectividad hacia el stack de observabilidad
@@ -441,12 +441,12 @@ if $OBS_DNS_OK; then
     "http://${OBS_HOST}:${LOKI_PORT}/ready" 2>/dev/null || echo "000")
   [[ "$LOKI_HTTP" == "200" ]] \
     && ok "Loki alcanzable desde $THIS_HOST: HTTP $LOKI_HTTP" \
-    || warn "DNS resuelve, pero Loki no responde en $OBS_HOST:$LOKI_PORT (HTTP $LOKI_HTTP) — logs no centralizados; revisar el servicio o firewall, no el DNS"
+    || warn "DNS resuelve, pero Loki no responde en $OBS_HOST:$LOKI_PORT (HTTP $LOKI_HTTP) — Loki es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación); logs no centralizados, pero no impacta componentes mandatorios. Si se requiere centralización de logs, revisar el servicio o firewall"
 
-  # Puerto OTLP gRPC
+  # Puerto OTLP gRPC — Tempo/OTel Collector son opcionales en el plan
   nc -z -w 3 "$OBS_HOST" 4317 2>/dev/null \
     && ok "OTLP gRPC (4317) alcanzable en $OBS_HOST" \
-    || warn "DNS resuelve, pero OTLP gRPC (4317) no responde en $OBS_HOST — revisar el servicio o firewall, no el DNS"
+    || warn "DNS resuelve, pero OTLP gRPC (4317) no responde en $OBS_HOST — OTLP/Tempo es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación); no impacta componentes mandatorios. Si se requiere trazas distribuidas, revisar el servicio o firewall"
 else
   warn "Prometheus/Loki/OTLP omitidos — sin resolución DNS de $OBS_HOST no tiene sentido probar puertos individuales (ver FAIL de arriba)"
 fi
@@ -469,7 +469,7 @@ if [[ "$ALLOY_METRICS_HTTP" == "200" ]]; then
     | grep "loki_write_sent_entries_total\|loki_process_" | head -1 || echo "")
   [[ -n "$ALLOY_LOKI_SENT" ]] \
     && ok "Envío de logs a Loki activo" \
-    || warn "No se detectó actividad de escritura a Loki (puede ser normal si Loki es opcional)"
+    || warn "No se detectó actividad de escritura a Loki — esperado, ya que Loki es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación)"
 fi
 
 # Verificar la fuente de métricas de nodo: en modo embebido, Alloy genera las

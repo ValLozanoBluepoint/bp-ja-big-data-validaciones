@@ -1,0 +1,87 @@
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Agentes Observabilidad (UNIVERSAL)     ║
+║   Alloy 1.6.0 + node-exporter  ·  Todos los nodos              ║
+║   Nodo   : pbigd-kaf01-cont                                       ║
+║   Fecha  : 2026-07-16 17:28:02                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Este script es mandatorio en TODOS los nodos de la plataforma.
+  [INFO] Alloy + node-exporter son los componentes mínimos indispensables de observabilidad.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS y prerequisitos del nodo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP sincronizado (timedatectl)
+  [INFO] Hostname FQDN: pbigd-kaf01-cont
+  [OK]  Hostname resoluble: pbigd-kaf01-cont
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · node-exporter
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  node-exporter embebido en Alloy activo (puerto 17935)
+  [OK]  API de componentes de Alloy responde (:17935/api/v0/web/components)
+  [OK]  Componente prometheus.exporter.unix: healthy (recolectando métricas de host)
+  [OK]  Componente prometheus.remote_write: healthy (enviando métricas al Prometheus central)
+  [INFO] Nota: no se listan métricas node_* individuales — en este modo no existen en ningún endpoint local; la salud de componentes de arriba es la validación local equivalente. Para confirmar arribo end-to-end, consultar Prometheus central (ver Módulo 5).
+  [INFO] Versión node-exporter: N/A (modo embebido — la versión relevante es la de Alloy, ver MÓDULO 3)
+  [INFO] Modo embebido en Alloy: el autoarranque se valida vía el servicio de Alloy (MÓDULO 3)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Grafana Alloy 1.6.0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Binario Alloy encontrado: /usr/bin/alloy
+  [INFO] Versión Alloy: 1.17.0
+  [INFO] Versión Alloy: detectada='1.17.0', recomendada='1.6.0' (no bloqueante)
+  [OK]  Proceso alloy en ejecución
+  [INFO]   PID: 350993
+  [INFO]   Uptime (segundos): 1534
+  [OK]  Puerto 17935 escuchando (Alloy HTTP/UI)
+  [OK]  Alloy health check OK: HTTP 200
+  [OK]  Endpoint /metrics de Alloy responde: HTTP 200
+  [WARN] No se pudo confirmar el archivo de configuración de Alloy (/etc/alloy/config.alloy no accesible ni por stat ni por listado) como admapl — esperado, ya que /etc/alloy pertenece al usuario de servicio 'alloy'; verificar con sudo antes de escalar como hallazgo real
+  [OK]  Servicio systemd activo: alloy
+  [OK]    ↳ Habilitado en boot
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Directorios y persistencia de Alloy
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Directorio existe: /etc/alloy
+  [WARN]   ↳ Sin permisos de escritura como admapl (esperado: /etc/alloy pertenece al usuario de servicio 'alloy', no a admapl — no es un hallazgo de configuración, es aislamiento de permisos correcto entre usuarios)
+  [WARN] Directorio no encontrado: /var/lib/alloy/data (puede estar en ruta alternativa)
+  [INFO] Verificando logs de Alloy en journald...
+  [OK]  Logs de Alloy disponibles vía journald (journalctl -u alloy)
+  [WARN] WAL de Alloy no encontrado en /var/lib/alloy/data como admapl — esperado, ya que /var/lib/alloy/data pertenece al usuario de servicio 'alloy' y no es legible por admapl; no es evidencia de que el WAL no exista (verificar con sudo antes de escalar como hallazgo real)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Conectividad hacia escila.jardinazuayo.fin.ec (stack observabilidad)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Verificando resolución DNS de escila.jardinazuayo.fin.ec...
+  [OK]  DNS resuelve escila.jardinazuayo.fin.ec → 172.17.210.197
+  [INFO] Verificando acceso a Prometheus en escila.jardinazuayo.fin.ec:9090
+  [OK]  Prometheus alcanzable desde pbigd-kaf01-cont: HTTP 200
+  [INFO] Verificando acceso a Loki en escila.jardinazuayo.fin.ec:3100
+  [WARN] DNS resuelve, pero Loki no responde en escila.jardinazuayo.fin.ec:3100 (HTTP 000000) — Loki es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación); logs no centralizados, pero no impacta componentes mandatorios. Si se requiere centralización de logs, revisar el servicio o firewall
+  [WARN] DNS resuelve, pero OTLP gRPC (4317) no responde en escila.jardinazuayo.fin.ec — OTLP/Tempo es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación); no impacta componentes mandatorios. Si se requiere trazas distribuidas, revisar el servicio o firewall
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 6 · Verificación de recolección activa
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Remote write activo: métricas siendo enviadas a Prometheus
+  [WARN] No se detectó actividad de escritura a Loki — esperado, ya que Loki es un componente opcional del stack de observabilidad (no bloqueante según el plan de implementación)
+  [OK]  Alloy configurado con exporter.unix embebido y healthy (node-exporter :17935) — confirmado vía API de componentes
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Agentes Observabilidad                              ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo         : pbigd-kaf01-cont                                  ║
+║   Total checks : 28                                                ║
+║   PASS         : 21                                                ║
+║   FAIL         : 0                                                 ║
+║   WARN         : 7                                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log          : /tmp/validate_obs_agents_pbigd-kaf01-cont_20260716_172802.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Agentes OK en pbigd-kaf01-cont — nodo visible en stack de observabilidad

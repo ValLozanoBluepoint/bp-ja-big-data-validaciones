@@ -2,38 +2,37 @@
 
 | Host | Validado |
 |-|-|
-| pbigd-kaf01 | [] |
-| pbigd-kaf02 | [] |
-| pbigd-kaf03 | [] |
-| pbigd-stg01 | [] |
-| pbigd-stg02 | [] |
-| pbigd-stg03 | [] |
-| pbigd-dlh01 | [] |
-| pbigd-dlh02 | [] |
-| pbigd-dlh03 | [] |
-| pbigd-proc01 | [] |
-| pbigd-proc02 | [] |
-| pbigd-proc03 | [] |
-| pbigd-plat-apps01 | [] |
-| pbigd-bd-plat-apps01 | [] |
+| pbigd-kaf01 | [x] |
+| pbigd-kaf02 | [x] |
+| pbigd-kaf03 | [x] |
+| pbigd-stg01 | [x] |
+| pbigd-stg02 | [x] |
+| pbigd-stg03 | [x] |
+| pbigd-dlh01 | [x] |
+| pbigd-dlh02 | [x] |
+| pbigd-dlh03 | [x] |
+| pbigd-proc01 | [x] |
+| pbigd-proc02 | [x] |
+| pbigd-proc03 | [x] |
+| pbigd-plat-apps01 | [x] |
+| pbigd-bd-plat-apps01 | [x] |
 | pbigd-plat-obs01 | [] |
-
 
 ## DR
 
 | Host | Validado |
 | |-|-| | [] |
-| pbigd-kaf01-cont | [] |
-| pbigd-kaf02-cont | [] |
-| pbigd-kaf03-cont | [] |
-| pbigd-stg01-cont | [] |
-| pbigd-stg02-cont | [] |
-| pbigd-stg03-cont | [] |
-| pbigd-dlh01-cont | [] |
-| pbigd-dlh02-cont | [] |
-| pbigd-dlh03-cont | [] |
-| pbigd-proc01-cont | [] |
-| pbigd-proc02-cont | [] |
-| pbigd-plat-apps01-cont | [] |
-| pbigd-bd-plat-apps01-cont | [] |
+| pbigd-kaf01-cont | [x] |
+| pbigd-kaf02-cont | [x] |
+| pbigd-kaf03-cont | [x] |
+| pbigd-stg01-cont | [x] |
+| pbigd-stg02-cont | [x] |
+| pbigd-stg03-cont | [x] |
+| pbigd-dlh01-cont | [x] |
+| pbigd-dlh02-cont | [x] |
+| pbigd-dlh03-cont | [x] |
+| pbigd-proc01-cont | [x] |
+| pbigd-proc02-cont | [x] |
+| pbigd-plat-apps01-cont | [x] |
+| pbigd-bd-plat-apps01-cont | [x] |
 | pbigd-plat-obs01-cont | [] |

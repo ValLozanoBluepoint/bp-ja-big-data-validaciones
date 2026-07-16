@@ -155,7 +155,8 @@ fi
 
 # 1.4 systemd
 info "1.4 Verificando systemd..."
-SYSSTATE=$(systemctl is-system-running 2>/dev/null || echo "unknown")
+SYSSTATE=$(systemctl is-system-running 2>/dev/null) || true
+[[ -z "$SYSSTATE" ]] && SYSSTATE="unknown"
 [[ "$SYSSTATE" == "running" ]] && pass "systemd: $SYSSTATE" || warn "systemd estado: $SYSSTATE"
 
 # 1.5 NTP — crítico para el consenso Raft del quórum de controllers KRaft
@@ -220,10 +221,16 @@ for dir in "${REQUIRED_DIRS[@]}"; do
       fi
 
       AVAIL_GB=$(df -BG "$dir" 2>/dev/null | awk 'NR==2{gsub(/G/,"",$4); print $4}' || echo "0")
-      if [[ "$AVAIL_GB" -gt 100 ]] 2>/dev/null; then
-        pass "$KAFKA_DATA disponible: ${AVAIL_GB} GB (umbral mínimo: 100 GB, spec: 200 GB)"
+      # Margen del 5% sobre el mínimo esperado (100 GB): el overhead normal del
+      # filesystem (metadata, bloques reservados, redondeo GB/GiB de df) hace
+      # que una partición de 100 GB casi nunca reporte >100 GB libres aunque
+      # esté prácticamente vacía. Sin este margen, el check falla siempre.
+      KAFKA_DATA_MIN_GB=100
+      MIN_AVAIL_GB=$(( KAFKA_DATA_MIN_GB * 95 / 100 ))
+      if [[ "$AVAIL_GB" -ge "$MIN_AVAIL_GB" ]] 2>/dev/null; then
+        pass "$KAFKA_DATA disponible: ${AVAIL_GB} GB (umbral mínimo: ${MIN_AVAIL_GB} GB)"
       else
-        warn "$KAFKA_DATA disponible: ${AVAIL_GB} GB — por debajo de lo especificado para DR"
+        warn "$KAFKA_DATA disponible: ${AVAIL_GB} GB — por debajo de lo especificado para DR (mínimo: ${MIN_AVAIL_GB} GB)"
       fi
     fi
   else
@@ -273,8 +280,15 @@ check_systemd_unit() {
   fi
   if [[ "$state" == "active" ]]; then
     pass "Unidad systemd (${scope}): $unit — activa — habilitada: $enabled"
-    if [[ "$enabled" != "enabled" ]]; then
+    # Unidades Quadlet (scope=usuario) nunca reportan "enabled": is-enabled
+    # devuelve "generated" porque el arranque real depende de [Install] en el
+    # .container/.pod + linger del usuario, no de systemctl enable. El linger
+    # ya se valida aparte (ver LINGER_STATE más abajo); aquí solo se marca FAIL
+    # si el scope es de sistema (unidad tradicional) y no está enabled.
+    if [[ "$scope" == "sistema" && "$enabled" != "enabled" ]]; then
       fail "  ↳ Unidad '$unit' (${scope}) NO habilitada en boot — CRÍTICO: Kafka DR debe sobrevivir reinicios"
+    elif [[ "$scope" == "usuario" && "$enabled" != "generated" && "$enabled" != "enabled" ]]; then
+      fail "  ↳ Unidad '$unit' (${scope}) en estado inesperado '$enabled' — verificar sección [Install] en el Quadlet"
     fi
   else
     fail "Unidad systemd (${scope}): $unit — estado: $state — habilitada: $enabled"

@@ -13,7 +13,11 @@
 #   · Prometheus básico  → recolección mínima de métricas de nodos DR
 #   · Grafana Alloy 1.6.0 → agente local
 #   · node-exporter      → métricas del propio nodo
-#   · Redis Sentinel 7.4.x → también presente (según diseño)
+#
+# NOTA: obs-dr-1 también lleva Redis Sentinel según el plan, pero su
+# instalación/validación corresponde al Sprint 4 (capa de Serving), no a este
+# script de Observabilidad base (Sprint 1). No se valida aquí — mismo criterio
+# aplicado en validate_obs_stack_principal.sh.
 #
 # Nodos DR que deben ser visibles en este Prometheus:
 #   pbigd-kaf01/02/03-cont, pbigd-stg01/02/03-cont, pbigd-dlh01/02/03-cont
@@ -37,7 +41,6 @@ NODE_EXPORTER_PORT=9100
 NODE_EXPORTER_EMBEDDED_PORT=17935   # exporter unix embebido en Alloy (prometheus.exporter.unix)
 ALLOY_PORT=12345
 ALLOY_VERSION_EXPECTED="1.6.0"
-REDIS_SENTINEL_PORT=26379
 
 # Retención mínima aceptable en DR (Prometheus con recursos reducidos)
 MIN_PROMETHEUS_TARGETS=5    # al menos la mitad de nodos DR activos
@@ -51,8 +54,15 @@ DR_NODES=(
   "pbigd-plat-apps01-cont" "pbigd-bd-plat-apps01-cont" "pbigd-plat-obs01-cont"
 )
 
+# PROMETHEUS_DATA: ruta de plan, sin confirmar en campo en pbigd-plat-obs01-cont
+# todavía (en el Principal esta misma ruta de plan resultó ser incorrecta —
+# el path real era /var/lib/prometheus). Verificar con
+# `systemctl cat prometheus | grep storage.tsdb.path` en este nodo DR antes
+# de confiar en el resultado de MÓDULO 9 (Directorios y persistencia).
 PROMETHEUS_DATA="/data/prometheus"
-ALLOY_CONFIG_DIR="/opt/alloy"
+# Confirmado en campo el 2026-07-16 (mismo patrón que pbigd-plat-apps01 en
+# Principal): la config real de Alloy vive en /etc/alloy, no /opt/alloy.
+ALLOY_CONFIG_DIR="/etc/alloy"
 
 # ---------------------------------------------------------------------------
 # Colores y helpers
@@ -377,30 +387,14 @@ else
 fi
 
 # ===========================================================================
-# MÓDULO 7 – Redis Sentinel en pbigd-plat-obs01-cont
+# MÓDULO 7 – systemd – persistencia crítica en DR
 # ===========================================================================
-section "MÓDULO 7 · Redis Sentinel (pbigd-plat-obs01-cont)"
-
-if ss -tlnp | grep -q ":${REDIS_SENTINEL_PORT}" || \
-   pgrep -x "redis-sentinel" &>/dev/null; then
-  ok "Redis Sentinel activo en pbigd-plat-obs01-cont (puerto $REDIS_SENTINEL_PORT)"
-  SENTINEL_PING=$(redis-cli -p "$REDIS_SENTINEL_PORT" PING 2>/dev/null || echo "")
-  [[ "$SENTINEL_PING" == "PONG" ]] \
-    && ok "Redis Sentinel PONG" \
-    || warn "Redis Sentinel no responde a PING"
-else
-  warn "Redis Sentinel no detectado en pbigd-plat-obs01-cont (verificar diseño)"
-fi
-
-# ===========================================================================
-# MÓDULO 8 – systemd – persistencia crítica en DR
-# ===========================================================================
-section "MÓDULO 8 · systemd – persistencia en DR"
+section "MÓDULO 7 · systemd – persistencia en DR"
 
 dr "En DR, autoarranque es OBLIGATORIO para todos los servicios"
 
 for UNIT in "prometheus" "alloy" "grafana-alloy" "node_exporter" \
-             "node-exporter" "redis-sentinel"; do
+             "node-exporter"; do
   if systemctl is-active --quiet "$UNIT" 2>/dev/null; then
     ok "Servicio activo: $UNIT"
     systemctl is-enabled --quiet "$UNIT" 2>/dev/null \
@@ -416,9 +410,9 @@ for CONTAINER_UNIT in "container-prometheus" "container-alloy"; do
 done
 
 # ===========================================================================
-# MÓDULO 9 – Conectividad con pbigd-plat-obs01 del DC Principal (post-recuperación)
+# MÓDULO 8 – Conectividad con pbigd-plat-obs01 del DC Principal (post-recuperación)
 # ===========================================================================
-section "MÓDULO 9 · Conectividad con DC Principal (referencia)"
+section "MÓDULO 8 · Conectividad con DC Principal (referencia)"
 
 # OBS1_HOST: "pbigd-plat-obs01" es la etiqueta del plan (hostnames.txt), pero
 # el nombre real registrado en el DNS interno (jardinazuayo.fin.ec) es "escila"
@@ -443,12 +437,18 @@ else
 fi
 
 # ===========================================================================
-# MÓDULO 10 – Datos persistidos en TSDB DR
+# MÓDULO 9 – Datos persistidos en TSDB DR
 # ===========================================================================
-section "MÓDULO 10 · Datos TSDB y persistencia"
+section "MÓDULO 9 · Datos TSDB y persistencia"
 
 if [[ -d "$PROMETHEUS_DATA" ]]; then
-  TSDB_SIZE=$(du -sh "$PROMETHEUS_DATA" 2>/dev/null | cut -f1 || echo "?")
+  # "|| true" fuera del $(...): con pipefail, du puede salir con status != 0
+  # por subdirectorios sin permiso de lectura aunque ya haya impreso el
+  # tamaño total correcto — meterlo dentro del pipe concatena un "?" extra
+  # en vez de reemplazar el valor (mismo bug ya visto y corregido en
+  # validate_obs_stack_principal.sh).
+  TSDB_SIZE=$(du -sh "$PROMETHEUS_DATA" 2>/dev/null | cut -f1) || true
+  [[ -z "$TSDB_SIZE" ]] && TSDB_SIZE="? (no calculable, posible restricción de permisos)"
   ok "Directorio TSDB existe: $PROMETHEUS_DATA (uso: $TSDB_SIZE)"
 
   # Contar bloques de datos

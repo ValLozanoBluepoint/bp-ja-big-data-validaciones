@@ -10,7 +10,7 @@
   Cluster: Kafka Principal (DC Principal)
   Nodo actual: pbigd-kaf02  (rol detectado: pbigd-kaf02)
   Bootstrap server: localhost:9092
-  Fecha/Hora: 2026-07-09 16:08:05 -05
+  Fecha/Hora: 2026-07-16 15:37:01 -05
 
 
 ══════════════════════════════════════════════════════
@@ -35,8 +35,9 @@
 [INFO] Verificando /data/kafka ...
 [PASS] Directorio /data/kafka existe — owner: UNKNOWN:UNKNOWN — perms: 775 — uso: 2.6G/100G usado (3%)
 [PASS] /data/kafka filesystem: xfs (no overlay)
+[PASS] /data/kafka disponible: 98 GB (umbral mínimo: 95 GB)
 [INFO] Verificando /var/log/kafka ...
-[PASS] Directorio /var/log/kafka existe — owner: UNKNOWN:UNKNOWN — perms: 775 — uso: 704M/30G usado (3%)
+[PASS] Directorio /var/log/kafka existe — owner: UNKNOWN:UNKNOWN — perms: 775 — uso: 785M/30G usado (3%)
 [INFO] Verificando partición /data independiente...
 [PASS] Partición /data montada en: /data
 [INFO] Verificando /opt/kafka dentro del contenedor...
@@ -45,14 +46,17 @@
 ══════════════════════════════════════════════════════
   3. SERVICIO SYSTEMD Y CONTENEDOR PODMAN
 ══════════════════════════════════════════════════════
-[INFO] 3.1 Verificando unidades systemd de Kafka...
-[WARN] No se encontraron unidades systemd con nombre 'kafka' — verificar manualmente
+[INFO] 3.1 Verificando unidades systemd de Kafka (sistema y usuario/Quadlet)...
+[PASS] Unidad systemd (usuario): kafka-broker-02.service — activa — habilitada: generated
+[PASS] Unidad systemd (usuario): pod-kafka-02-pod.service — activa — habilitada: generated
 [INFO] 3.2 Verificando contenedor Podman Kafka...
-[PASS] Contenedor: kafka-broker-02 — estado: Up 26 hours — imagen: docker.io/apache/kafka:4.0.1
+[PASS] Contenedor: kafka-broker-02 — estado: Up 37 minutes — imagen: docker.io/apache/kafka:4.0.1
 [INFO] 3.3 Verificando naming convention de contenedores...
 [PASS] Naming convention correcta: kafka-broker-02
-[INFO] 3.4 Verificando política de reinicio...
-[WARN] Política de reinicio: no (recomendado: always o gestión via systemd)
+[INFO] 3.4 Verificando política de reinicio (Podman nativo y systemd/Quadlet)...
+[PASS] Política de reinicio gestionada por systemd/Quadlet: Restart=always (unidad: kafka-broker-02.service) — Podman nativo reporta 'no' porque el reinicio lo gestiona systemd, no Podman
+[INFO] 3.5 Verificando linger de systemd para persistencia de servicios de usuario (Quadlet rootless)...
+[PASS] Linger habilitado para usuario admapl — el servicio persiste sin sesión activa y arranca en el boot
 
 ══════════════════════════════════════════════════════
   4. CONECTIVIDAD DE RED
@@ -62,10 +66,10 @@
 [INFO] 4.2 Puerto controller KRaft (9093)...
 [PASS] Puerto 9093 (Controller KRaft) ESCUCHANDO localmente
 [INFO] 4.3 Conectividad entre nodos del cluster...
-[PASS] Ping a pbigd-kaf01: OK (rtt: 0.376ms)
+[PASS] Ping a pbigd-kaf01: OK (rtt: 0.259ms)
 [PASS] TCP pbigd-kaf01:9092 alcanzable
 [PASS] TCP pbigd-kaf01:9093 (controller) alcanzable
-[PASS] Ping a pbigd-kaf03: OK (rtt: 0.342ms)
+[PASS] Ping a pbigd-kaf03: OK (rtt: 0.315ms)
 [PASS] TCP pbigd-kaf03:9092 alcanzable
 [PASS] TCP pbigd-kaf03:9093 (controller) alcanzable
 
@@ -78,21 +82,27 @@
 [PASS] Sin proceso Zookeeper dentro del contenedor
 [INFO] 5.2 Verificando estado del quórum de metadata (KRaft)...
 [PASS] Quórum KRaft respondiendo — detalle:
-[INFO] ClusterId:              VP6nnxobRa-pAdN7NtBFbQ
-LeaderId:               2
-LeaderEpoch:            2
-HighWatermark:          191511
+[INFO] ClusterId:              ppGWqJhuQNSaezGXt4ECAg
+LeaderId:               1
+LeaderEpoch:            9
+HighWatermark:          612900
 MaxFollowerLag:         0
 MaxFollowerLagTimeMs:   0
-CurrentVoters:          [{"id": 2, "directoryId": "CURbZziyRjKLHbKu2sPKVA", "endpoints": ["CONTROLLER://pbigd-kaf02:9093"]}]
+CurrentVoters:          [{"id": 1, "directoryId": null, "endpoints": ["CONTROLLER://pbigd-kaf01:9093"]}, {"id": 2, "directoryId": null, "endpoints": ["CONTROLLER://pbigd-kaf02:9093"]}, {"id": 3, "directoryId": null, "endpoints": ["CONTROLLER://pbigd-kaf03:9093"]}]
 CurrentObservers:       []
 [INFO] 5.3 Verificando brokers registrados en el cluster...
-[INFO] Brokers detectados respondiendo a API versions: 1
-[FAIL] Brokers activos insuficientes: 1 (se esperan 3 en DC Principal)
+[INFO] Brokers detectados respondiendo a API versions: 3
+[PASS] Brokers activos: 3 (≥3 requerido en Principal)
 [INFO] 5.4 Ejecutando ciclo de prueba de topic: crear → producir → consumir → borrar...
-[FAIL] Creación de topic de prueba: FALLO — Error while executing topic command : Unable to replicate the partition 3 time(s): The target replication factor of 3 cannot be reached because only 1 broker(s) are registered.
-[2026-07-09 21:08:12,566] ERROR org.apache.kafka.common.errors.InvalidReplicationFactorException: Unable to replicate the partition 3 time(s): The target replication factor of 3 cannot be reached because only 1 broker(s) are registered.
-ERROR
+[PASS] Topic de prueba creado: bluepoint-validation-1784234221 (particiones=3, replication-factor=3)
+[PASS] Producción de mensaje de prueba: OK
+[PASS] Consumo de mensaje de prueba: OK
+[INFO] Topic: bluepoint-validation-1784234221   TopicId: m0D9MkeFSnOmR54tu8fqyg PartitionCount: 3       ReplicationFactor: 3    Configs: min.insync.replicas=2,segment.bytes=1073741824
+        Topic: bluepoint-validation-1784234221  Partition: 0    Leader: 3       Replicas: 3,1,2 Isr: 3,1,2      Elr:    LastKnownElr:
+        Topic: bluepoint-validation-1784234221  Partition: 1    Leader: 1       Replicas: 1,2,3 Isr: 1,2,3      Elr:    LastKnownElr:
+        Topic: bluepoint-validation-1784234221  Partition: 2    Leader: 2       Replicas: 2,3,1 Isr: 2,3,1      Elr:    LastKnownElr:
+[PASS] Replicación interna: ISR completo (3/3 réplicas sincronizadas)
+[INFO] Topic de prueba 'bluepoint-validation-1784234221' eliminado.
 
 ══════════════════════════════════════════════════════
   6. RESILIENCIA Y ESTADO DEL CLUSTER
@@ -100,7 +110,7 @@ ERROR
 [INFO] 6.1 Verificando particiones sub-replicadas en el cluster...
 [PASS] Sin particiones sub-replicadas detectadas
 [INFO] 6.2 Verificando quórum de brokers (3/3 requerido en Principal)...
-[FAIL] Quórum de brokers: 1/3 — cluster degradado
+[PASS] Quórum de brokers: 3/3 — completo
 [INFO] 6.3 Estado de Kafka en cada nodo del cluster (TCP broker port)...
 [PASS] Nodo pbigd-kaf01: puerto 9092 alcanzable — UP
 [PASS] Nodo pbigd-kaf02: puerto 9092 alcanzable — UP
@@ -111,8 +121,10 @@ ERROR
   7. LOGS Y OBSERVABILIDAD
 ══════════════════════════════════════════════════════
 [INFO] 7.1 Verificando logs en /var/log/kafka...
-[PASS] Logs en /var/log/kafka: 7 archivo(s) — último modificado: 2026-07-09 16:08:14
+[PASS] Logs en /var/log/kafka: 7 archivo(s) — último modificado: 2026-07-16 15:37:28
 [PASS] Sin errores críticos en los últimos 100 logs del contenedor
+[INFO] 7.2b Verificando warnings UNKNOWN_TOPIC_ID (transitorios esperados en __consumer_offsets)...
+[PASS] Sin warnings UNKNOWN_TOPIC_ID en los últimos 500 logs del contenedor
 [INFO] 7.3 Verificando Grafana Alloy (agente de observabilidad)...
 [PASS] Alloy: alloy.service — activo
 [INFO] 7.4 Verificando node-exporter...
@@ -134,14 +146,13 @@ error
   Cluster       : Kafka Principal (DC Principal)
   Nodo          : pbigd-kaf02
   Nodos         : pbigd-kaf01 pbigd-kaf02 pbigd-kaf03
-  Fecha         : 2026-07-09 16:08:17 -05
-  Total checks  : 40
-  PASS          : 34
-  FAIL          : 3
-  WARN          : 3
+  Fecha         : 2026-07-16 15:37:30 -05
+  Total checks  : 47
+  PASS          : 46
+  FAIL          : 0
+  WARN          : 1
 
   Nota de alcance: esta validación cubre únicamente el cluster Kafka.
   La integración Kafka↔Flink se valida por separado (fuera de este alcance).
 
-  ❌  VALIDACIÓN FALLÓ: 3 ERROR(ES) | 3 ADVERTENCIA(S)
-      Corregir errores antes de operar el cluster en producción.
+  ⚠️   VALIDACIÓN COMPLETADA CON 1 ADVERTENCIA(S) — revisar antes de producción

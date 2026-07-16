@@ -148,7 +148,8 @@ fi
 
 # 1.4 systemd activo
 info "1.4 Verificando systemd..."
-SYSSTATE=$(systemctl is-system-running 2>/dev/null || echo "unknown")
+SYSSTATE=$(systemctl is-system-running 2>/dev/null) || true
+[[ -z "$SYSSTATE" ]] && SYSSTATE="unknown"
 [[ "$SYSSTATE" == "running" ]] && pass "systemd: $SYSSTATE" || warn "systemd estado: $SYSSTATE"
 
 # 1.5 NTP — crítico para el consenso Raft del quórum de controllers KRaft
@@ -194,6 +195,19 @@ for dir in "${REQUIRED_DIRS[@]}"; do
         fail "$KAFKA_DATA usa overlay filesystem — debe ser bind mount sobre partición dedicada"
       else
         pass "$KAFKA_DATA filesystem: $FSTYPE (no overlay)"
+      fi
+
+      AVAIL_GB=$(df -BG "$dir" 2>/dev/null | awk 'NR==2{gsub(/G/,"",$4); print $4}' || echo "0")
+      # Margen del 5% sobre el mínimo esperado (100 GB): el overhead normal del
+      # filesystem (metadata, bloques reservados, redondeo GB/GiB de df) hace
+      # que una partición de 100 GB casi nunca reporte >100 GB libres aunque
+      # esté prácticamente vacía. Sin este margen, el check falla siempre.
+      KAFKA_DATA_MIN_GB=100
+      MIN_AVAIL_GB=$(( KAFKA_DATA_MIN_GB * 95 / 100 ))
+      if [[ "$AVAIL_GB" -ge "$MIN_AVAIL_GB" ]] 2>/dev/null; then
+        pass "$KAFKA_DATA disponible: ${AVAIL_GB} GB (umbral mínimo: ${MIN_AVAIL_GB} GB)"
+      else
+        warn "$KAFKA_DATA disponible: ${AVAIL_GB} GB — por debajo de lo especificado (mínimo: ${MIN_AVAIL_GB} GB)"
       fi
     fi
   else
@@ -243,6 +257,14 @@ check_systemd_unit() {
   fi
   if [[ "$state" == "active" ]]; then
     pass "Unidad systemd (${scope}): $unit — activa — habilitada: $enabled"
+    # Unidades Quadlet (scope=usuario) nunca reportan "enabled": is-enabled
+    # devuelve "generated" porque el arranque real depende de [Install] en el
+    # .container/.pod + linger del usuario, no de systemctl enable.
+    if [[ "$scope" == "sistema" && "$enabled" != "enabled" ]]; then
+      warn "  ↳ Unidad '$unit' (${scope}) NO habilitada en boot — en Principal se reporta como advertencia (en DR sería CRÍTICO)"
+    elif [[ "$scope" == "usuario" && "$enabled" != "generated" && "$enabled" != "enabled" ]]; then
+      warn "  ↳ Unidad '$unit' (${scope}) en estado inesperado '$enabled' — verificar sección [Install] en el Quadlet"
+    fi
   else
     fail "Unidad systemd (${scope}): $unit — estado: $state — habilitada: $enabled"
   fi

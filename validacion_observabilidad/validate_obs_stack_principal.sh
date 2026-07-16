@@ -7,13 +7,18 @@
 # Componentes:
 #   · Prometheus 3.5.1              → métricas (mandatorio)
 #   · Grafana 12.3.4                → dashboards (mandatorio)
-#   · Redis Sentinel 7.4.x          → también presente en pbigd-plat-obs01
 #   · Loki 3.6.5                    → logs centralizados (opcional/recomendado)
 #   · Tempo 2.10.1                  → trazas distribuidas (opcional)
 #   · OpenTelemetry Collector 0.146.1 → receptor OTLP (opcional)
 #   · Grafana Alloy 1.6.0           → agente local en pbigd-plat-obs01
 #   · node-exporter                 → métricas del propio nodo (standalone :9100
 #                                      o embebido en Alloy :17935)
+#
+# NOTA: obs-1 también lleva Redis Sentinel según el plan (tercer nodo de
+# quorum HA junto a platform-apps-1 y platform-db-1), pero esa instalación y
+# validación corresponden al Sprint 4 (Día 6-8, Tarea 4.4/4.5) del plan de
+# implementación, no al Sprint 1 "Observabilidad base" que cubre este script.
+# Se valida en el script de la capa de Serving, no aquí.
 #
 # Validaciones cubiertas:
 #   1. OS y prerequisitos
@@ -22,12 +27,11 @@
 #   4. Loki: proceso, puerto, health, ingestión
 #   5. Tempo: proceso, puerto, health
 #   6. OpenTelemetry Collector: proceso, puerto
-#   7. Redis Sentinel (en pbigd-plat-obs01)
-#   8. Alloy + node-exporter locales (standalone o embebido)
-#   9. Visibilidad de todos los nodos del cluster (scrape coverage)
-#  10. Alertas básicas configuradas
-#  11. Persistencia y directorios
-#  12. systemd y reinicio automático
+#   7. Alloy + node-exporter locales (standalone o embebido)
+#   8. Visibilidad de todos los nodos del cluster (scrape coverage)
+#   9. Alertas básicas configuradas
+#  10. Persistencia y directorios
+#  11. systemd y reinicio automático
 #
 # Runtime: Rocky Linux 10.x · Podman 5.x · systemd
 #
@@ -62,13 +66,33 @@ OTELCOL_METRICS=8888
 NODE_EXPORTER_PORT=9100
 NODE_EXPORTER_EMBEDDED_PORT=17935   # exporter unix embebido en Alloy (prometheus.exporter.unix)
 ALLOY_PORT=12345
-REDIS_SENTINEL_PORT=26379
 
-# Directorios
+# Credenciales de Grafana — nunca hardcodear un password real aquí, se pasan
+# por entorno. Ambas son opcionales; si no se exportan, cae a admin:admin.
+# Si la auth por API falla (ej. Basic Auth deshabilitado en grafana.ini), el
+# script no bloquea — reporta WARN y sugiere validar por la UI de Grafana.
+#   GRAFANA_TOKEN='glsa_...' ./validate_obs_stack_principal.sh   (preferido)
+#   GRAFANA_USER=admin GRAFANA_PASS='...' ./validate_obs_stack_principal.sh
+GRAFANA_TOKEN="${GRAFANA_TOKEN:-}"
+GRAFANA_USER="${GRAFANA_USER:-admin}"
+GRAFANA_PASS="${GRAFANA_PASS:-admin}"
+if [[ -n "$GRAFANA_TOKEN" ]]; then
+  GRAFANA_AUTH_ARGS=(-H "Authorization: Bearer ${GRAFANA_TOKEN}")
+  GRAFANA_AUTH_DESC="token de servicio"
+else
+  GRAFANA_AUTH_ARGS=(-u "${GRAFANA_USER}:${GRAFANA_PASS}")
+  GRAFANA_AUTH_DESC="usuario '${GRAFANA_USER}' (Basic Auth)"
+fi
+
+# Directorios de datos reales, confirmados en campo el 2026-07-16 en
+# pbigd-plat-obs01 vía `systemctl cat prometheus` (--storage.tsdb.path) y
+# `ls -la /var/lib/grafana` (path por defecto de Grafana, grafana.db activo).
+# Las rutas de plan (/data/prometheus, /data/grafana) nunca existieron en el
+# despliegue real — de ahí el FAIL falso que daba este módulo antes.
 PROMETHEUS_DIR="/opt/prometheus"
-PROMETHEUS_DATA="/data/prometheus"
+PROMETHEUS_DATA="/var/lib/prometheus"
 GRAFANA_DIR="/opt/grafana"
-GRAFANA_DATA="/data/grafana"
+GRAFANA_DATA="/var/lib/grafana"
 LOKI_DIR="/opt/loki"
 LOKI_DATA="/data/loki"
 TEMPO_DIR="/opt/tempo"
@@ -218,14 +242,18 @@ if down:
         print(f'    [{t[\"health\"]}] {t[\"labels\"].get(\"instance\",\"?\")}')" \
     2>/dev/null | tee -a "$LOG_FILE" || true
 
-  # Contar targets up vs esperados
+  # Nota: NO se compara el conteo de /api/v1/targets contra el total de nodos
+  # esperados. Ese endpoint solo reporta targets que Prometheus scrapea (pull),
+  # pero Alloy en este despliegue envía métricas vía remote_write (push) —
+  # un nodo con Alloy sano nunca aparecerá en /targets, así que ese conteo
+  # siempre estará muy por debajo del total real de nodos aunque todo esté
+  # funcionando. La cobertura real de nodos vía remote_write ya se valida
+  # correctamente en el MÓDULO 8 (query 'up{instance=~...}' por nodo).
   N_UP=$(echo "$TARGETS_JSON" | python3 -c \
     "import sys,json; d=json.load(sys.stdin); \
     print(len([x for x in d['data']['activeTargets'] if x['health']=='up']))" \
     2>/dev/null || echo "0")
-  [[ "$N_UP" -ge ${#PRINCIPAL_NODES[@]} ]] 2>/dev/null \
-    && ok "Suficientes targets activos: $N_UP (nodos esperados: ${#PRINCIPAL_NODES[@]})" \
-    || warn "Targets activos ($N_UP) < nodos esperados (${#PRINCIPAL_NODES[@]})"
+  info "Targets scrapeados directamente por Prometheus (pull): $N_UP — no confundir con cobertura de nodos vía remote_write (push), ver MÓDULO 8"
 else
   warn "No se pudo consultar /api/v1/targets"
 fi
@@ -273,14 +301,14 @@ ss -tlnp | grep -q ":${GRAFANA_PORT}" \
   || fail "Puerto $GRAFANA_PORT no escucha"
 
 # 3.2 Health check
-GRAFANA_HEALTH=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+GRAFANA_HEALTH=$(curl -sfL --max-time 5 -o /dev/null -w "%{http_code}" \
   "http://localhost:${GRAFANA_PORT}/api/health" 2>/dev/null || echo "000")
 [[ "$GRAFANA_HEALTH" == "200" ]] \
   && ok "Grafana health check OK: HTTP $GRAFANA_HEALTH" \
   || fail "Grafana health check fallido: HTTP $GRAFANA_HEALTH"
 
 # 3.3 Versión via API
-GRAFANA_VER=$(curl -sf --max-time 5 \
+GRAFANA_VER=$(curl -sfL --max-time 5 \
   "http://localhost:${GRAFANA_PORT}/api/health" 2>/dev/null \
   | python3 -c "import sys,json; print(json.load(sys.stdin).get('version','?'))" \
   2>/dev/null || echo "unknown")
@@ -289,47 +317,56 @@ info "Versión Grafana: $GRAFANA_VER"
   && ok "Versión Grafana correcta: $GRAFANA_VER" \
   || warn "Versión Grafana: detectada='$GRAFANA_VER' esperada='$GRAFANA_VERSION_EXPECTED'"
 
-# 3.4 Datasources configurados (anon o con credenciales de admin)
-DS_RESP=$(curl -sf --max-time 5 -u "admin:admin" \
-  "http://localhost:${GRAFANA_PORT}/api/datasources" 2>/dev/null || \
-  curl -sf --max-time 5 \
-  "http://localhost:${GRAFANA_PORT}/api/datasources" 2>/dev/null || echo "")
-if [[ -n "$DS_RESP" ]]; then
-  DS_COUNT=$(echo "$DS_RESP" | python3 -c \
-    "import sys,json; ds=json.load(sys.stdin); \
-    [print(f'  DS: {d[\"name\"]} ({d[\"type\"]})') for d in ds]; \
-    print(f'Total datasources: {len(ds)}')" 2>/dev/null || echo "?")
-  ok "Datasources accesibles"
-  log "$DS_COUNT"
+# 3.4/3.5 Datasources y dashboards — requiere auth real: GRAFANA_TOKEN
+# (Bearer, opcional) o GRAFANA_USER/GRAFANA_PASS (opcional, default
+# admin:admin). -L sigue el redirect si Grafana tiene root_url != localhost.
+# Si la auth falla (ej. Basic Auth deshabilitado en grafana.ini), no bloquea
+# el script — se reporta como WARN y se sugiere validar directo en la UI
+# (Connections > Data sources, y Dashboards), que no depende de este check.
+# "|| true" fuera del $(...): con -f, curl sale con código != 0 en un 401,
+# y sin este guard set -e mata el script aquí mismo en silencio (ya pasó
+# antes con `du`, mismo patrón).
+DS_RESP=$(curl -sfL --max-time 5 "${GRAFANA_AUTH_ARGS[@]}" "http://localhost:${GRAFANA_PORT}/api/datasources" 2>/dev/null) || true
+DS_INFO=$(echo "$DS_RESP" | python3 -c "
+import sys, json
+try:
+    ds = json.load(sys.stdin)
+    assert isinstance(ds, list)
+except Exception:
+    print('AUTH_FAIL'); sys.exit()
+print(f'COUNT={len(ds)}')
+print('PROM=' + ('1' if any(d.get(\"type\")==\"prometheus\" for d in ds) else '0'))
+print('LOKI=' + ('1' if any(d.get(\"type\")==\"loki\" for d in ds) else '0'))
+" 2>/dev/null)
 
-  # Verificar que Prometheus está como datasource
-  echo "$DS_RESP" | python3 -c \
-    "import sys,json; ds=json.load(sys.stdin); \
-    prom=[d for d in ds if d['type']=='prometheus']; \
-    print('ok' if prom else 'missing')" 2>/dev/null | grep -q "^ok" \
-    && ok "  Datasource Prometheus configurado en Grafana" \
-    || warn "  Datasource Prometheus NO configurado en Grafana"
-
-  echo "$DS_RESP" | python3 -c \
-    "import sys,json; ds=json.load(sys.stdin); \
-    loki=[d for d in ds if d['type']=='loki']; \
-    print('ok' if loki else 'missing')" 2>/dev/null | grep -q "^ok" \
-    && ok "  Datasource Loki configurado en Grafana" \
-    || warn "  Datasource Loki NO configurado (opcional pero recomendado)"
+if [[ -z "$DS_INFO" || "$DS_INFO" == "AUTH_FAIL" ]]; then
+  warn "No se pudo validar datasources vía API con ${GRAFANA_AUTH_DESC} — validar manualmente en la UI de Grafana: Connections > Data sources"
 else
-  warn "No se pudo consultar datasources (puede requerir credenciales no por defecto)"
+  ok "Datasources: $(echo "$DS_INFO" | grep COUNT= | cut -d= -f2) configurados"
+  echo "$DS_INFO" | grep -q "PROM=1" \
+    && ok "  Datasource Prometheus configurado" \
+    || warn "  Datasource Prometheus NO configurado en Grafana"
+  echo "$DS_INFO" | grep -q "LOKI=1" \
+    && ok "  Datasource Loki configurado" \
+    || warn "  Datasource Loki NO configurado (opcional pero recomendado)"
 fi
 
-# 3.5 Dashboards disponibles
-DASH_RESP=$(curl -sf --max-time 5 -u "admin:admin" \
-  "http://localhost:${GRAFANA_PORT}/api/search?type=dash-db" 2>/dev/null || echo "")
-if [[ -n "$DASH_RESP" ]]; then
-  DASH_COUNT=$(echo "$DASH_RESP" | python3 -c \
-    "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-  info "Dashboards configurados: $DASH_COUNT"
-  [[ "$DASH_COUNT" -gt 0 ]] 2>/dev/null \
-    && ok "Dashboards disponibles: $DASH_COUNT" \
-    || warn "Sin dashboards configurados — visibilidad operacional limitada"
+DASH_RESP=$(curl -sfL --max-time 5 "${GRAFANA_AUTH_ARGS[@]}" "http://localhost:${GRAFANA_PORT}/api/search?type=dash-db" 2>/dev/null) || true
+DASH_COUNT=$(echo "$DASH_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(len(d)) if isinstance(d, list) else print('AUTH_FAIL')
+except Exception:
+    print('AUTH_FAIL')
+" 2>/dev/null)
+
+if [[ -z "$DASH_COUNT" || "$DASH_COUNT" == "AUTH_FAIL" ]]; then
+  warn "No se pudo validar dashboards vía API con ${GRAFANA_AUTH_DESC} — validar manualmente en la UI de Grafana: Dashboards"
+elif [[ "$DASH_COUNT" -gt 0 ]]; then
+  ok "Dashboards disponibles: $DASH_COUNT"
+else
+  warn "Sin dashboards configurados — visibilidad operacional limitada"
 fi
 
 # ===========================================================================
@@ -447,31 +484,19 @@ else
   opt "OpenTelemetry Collector NO detectado (componente opcional)"
 fi
 
-# ===========================================================================
-# MÓDULO 7 – Redis Sentinel en pbigd-plat-obs01
-# ===========================================================================
-section "MÓDULO 7 · Redis Sentinel (en pbigd-plat-obs01)"
-
-if ss -tlnp | grep -q ":${REDIS_SENTINEL_PORT}" || \
-   pgrep -x "redis-sentinel" &>/dev/null; then
-  ok "Redis Sentinel activo en pbigd-plat-obs01 (puerto $REDIS_SENTINEL_PORT)"
-
-  SENTINEL_PING=$(redis-cli -p "$REDIS_SENTINEL_PORT" PING 2>/dev/null || echo "")
-  [[ "$SENTINEL_PING" == "PONG" ]] \
-    && ok "Redis Sentinel responde PONG" \
-    || warn "Redis Sentinel no responde a PING"
-
-  SENTINEL_MASTERS=$(redis-cli -p "$REDIS_SENTINEL_PORT" \
-    SENTINEL masters 2>/dev/null | grep -c "name" || echo "0")
-  info "Masters monitoreados por Sentinel en pbigd-plat-obs01: $SENTINEL_MASTERS"
-else
-  warn "Redis Sentinel no detectado en pbigd-plat-obs01 (según diseño debe estar presente)"
-fi
+# NOTA: Redis Sentinel SÍ está asignado a este nodo según el plan (obs-1 lleva
+# "Prometheus+Grafana + Redis Sentinel + Alloy"), pero su instalación y
+# validación corresponden al Sprint 4 (Día 6-8, Tarea 4.4/4.5 "Redis + Sentinel")
+# del plan de implementación, no al Sprint 1 "Observabilidad base" que cubre
+# este script (Tarea 1.5-1.7: Alloy, Prometheus, validación de observabilidad).
+# Se retira este módulo de aquí para no reportar como hallazgo algo que
+# todavía no le toca a esta fase; la validación de Redis Sentinel debe vivir
+# en el script de validación de la capa de Serving (Sprint 4).
 
 # ===========================================================================
-# MÓDULO 8 – Alloy + node-exporter locales en pbigd-plat-obs01
+# MÓDULO 7 – Alloy + node-exporter locales en pbigd-plat-obs01
 # ===========================================================================
-section "MÓDULO 8 · Alloy + node-exporter locales (pbigd-plat-obs01)"
+section "MÓDULO 7 · Alloy + node-exporter locales (pbigd-plat-obs01)"
 
 # node-exporter — puede correr standalone (:9100) o embebido en Alloy
 # (prometheus.exporter.unix en :17935). Ambos son válidos; solo se falla
@@ -506,9 +531,9 @@ ALLOY_SELF=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
   || warn "Alloy en pbigd-plat-obs01: HTTP $ALLOY_SELF"
 
 # ===========================================================================
-# MÓDULO 9 – Visibilidad de todos los nodos (scrape coverage)
+# MÓDULO 8 – Visibilidad de todos los nodos (scrape coverage)
 # ===========================================================================
-section "MÓDULO 9 · Cobertura de scraping – todos los nodos del DC Principal"
+section "MÓDULO 8 · Cobertura de scraping – todos los nodos del DC Principal"
 
 if [[ "$PROM_HEALTH" == "200" ]]; then
   info "Verificando visibilidad de cada nodo en Prometheus..."
@@ -542,9 +567,9 @@ else
 fi
 
 # ===========================================================================
-# MÓDULO 10 – Alertas básicas configuradas
+# MÓDULO 9 – Alertas básicas configuradas
 # ===========================================================================
-section "MÓDULO 10 · Alertas básicas"
+section "MÓDULO 9 · Alertas básicas"
 
 ALERTS_JSON=$(curl -sf --max-time 5 \
   "http://localhost:${PROMETHEUS_PORT}/api/v1/rules" 2>/dev/null || echo "")
@@ -583,13 +608,20 @@ else
 fi
 
 # ===========================================================================
-# MÓDULO 11 – Directorios y retención de datos
+# MÓDULO 10 – Directorios y retención de datos
 # ===========================================================================
-section "MÓDULO 11 · Directorios y retención"
+section "MÓDULO 10 · Directorios y retención"
 
 for DIR in "$PROMETHEUS_DATA" "$GRAFANA_DATA"; do
   if [[ -d "$DIR" ]]; then
-    SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1 || echo "?")
+    # El "|| true" va FUERA de la sustitución de comandos, no dentro del pipe:
+    # con pipefail activo, `du` puede salir con status != 0 por subdirectorios
+    # sin permiso de lectura (ej. subcarpetas de grafana con drwx------)
+    # aunque ya haya impreso el tamaño total correcto. Si el fallback "?" se
+    # ejecuta dentro del mismo $(...), se concatena como línea extra al valor
+    # ya capturado (ej. "1.3M\n?") en vez de reemplazarlo.
+    SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1) || true
+    [[ -z "$SIZE" ]] && SIZE="? (no calculable, posible restricción de permisos en subdirectorios)"
     ok "Directorio existe: $DIR  (uso: $SIZE)"
   else
     fail "Directorio de datos faltante: $DIR"
@@ -598,7 +630,8 @@ done
 
 for DIR in "$LOKI_DATA" "$TEMPO_DATA"; do
   if [[ -d "$DIR" ]]; then
-    SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1 || echo "?")
+    SIZE=$(du -sh "$DIR" 2>/dev/null | cut -f1) || true
+    [[ -z "$SIZE" ]] && SIZE="? (no calculable, posible restricción de permisos en subdirectorios)"
     ok "Directorio existe: $DIR  (uso: $SIZE)"
   else
     opt "Directorio opcional no encontrado: $DIR (Loki/Tempo pueden no estar instalados)"
@@ -610,10 +643,17 @@ DISK_AVAIL=$(df -h /data 2>/dev/null | tail -1 | awk '{print $4}' || echo "?")
 info "Espacio disponible en /data: $DISK_AVAIL"
 
 # ===========================================================================
-# MÓDULO 12 – systemd persistencia de todos los servicios
+# MÓDULO 11 – systemd persistencia de todos los servicios
 # ===========================================================================
-section "MÓDULO 12 · systemd – persistencia de servicios"
+section "MÓDULO 11 · systemd – persistencia de servicios"
 
+# Nota: en pbigd-plat-obs01 Prometheus y Grafana corren como binarios nativos
+# vía systemd (ExecStart=/usr/local/bin/prometheus, /usr/share/grafana/bin/grafana
+# server) — confirmado en campo el 2026-07-16. No hay despliegue vía Podman en
+# este nodo (podman ps -a solo muestra un contenedor nginx-prod sin relación
+# con el stack de observabilidad), así que no se sugiere "probar container-X"
+# como alternativa: si un servicio no está activo aquí, es porque no está
+# instalado, no porque esté empaquetado distinto.
 check_svc() {
   local UNIT=$1 DESC=$2 MANDATORY=${3:-true}
   if systemctl is-active --quiet "$UNIT" 2>/dev/null; then
@@ -624,21 +664,19 @@ check_svc() {
            || warn "  ↳ NO habilitado en boot"; }
   else
     $MANDATORY \
-      && warn "Servicio '$UNIT' no activo como sistema (probar también container-$UNIT)" \
+      && warn "Servicio '$UNIT' no activo — no se detectó como unidad systemd ni como contenedor Podman en este nodo" \
       || opt "Servicio opcional '$UNIT' no activo ($DESC)"
   fi
 }
 
 check_svc "prometheus"           "Prometheus métricas"           true
 check_svc "grafana-server"       "Grafana dashboards"            true
-check_svc "grafana"              "Grafana (alt naming)"          true
 check_svc "loki"                 "Loki logs"                     false
 check_svc "tempo"                "Tempo trazas"                  false
 check_svc "otelcol"              "OTel Collector"                false
 check_svc "otelcol-contrib"      "OTel Collector contrib"        false
 check_svc "node_exporter"        "node-exporter"                 true
 check_svc "alloy"                "Grafana Alloy agente"          true
-check_svc "redis-sentinel"       "Redis Sentinel"                true
 
 # ===========================================================================
 # RESUMEN FINAL
