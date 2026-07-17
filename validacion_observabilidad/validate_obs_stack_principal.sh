@@ -14,12 +14,6 @@
 #   · node-exporter                 → métricas del propio nodo (standalone :9100
 #                                      o embebido en Alloy :17935)
 #
-# NOTA: obs-1 también lleva Redis Sentinel según el plan (tercer nodo de
-# quorum HA junto a platform-apps-1 y platform-db-1), pero esa instalación y
-# validación corresponden al Sprint 4 (Día 6-8, Tarea 4.4/4.5) del plan de
-# implementación, no al Sprint 1 "Observabilidad base" que cubre este script.
-# Se valida en el script de la capa de Serving, no aquí.
-#
 # Validaciones cubiertas:
 #   1. OS y prerequisitos
 #   2. Prometheus: proceso, puerto, API, targets, scrape activo
@@ -65,7 +59,12 @@ OTELCOL_HTTP=4318
 OTELCOL_METRICS=8888
 NODE_EXPORTER_PORT=9100
 NODE_EXPORTER_EMBEDDED_PORT=17935   # exporter unix embebido en Alloy (prometheus.exporter.unix)
-ALLOY_PORT=12345
+# ALLOY_PORT: 12345 es el default de Alloy, pero este despliegue lo
+# sobreescribe a 17935 vía CUSTOM_ARGS en /etc/sysconfig/alloy (confirmado en
+# campo el 2026-07-14 en pbigd-plat-apps01, ver validate_obs_agents.sh) — es
+# el MISMO puerto que NODE_EXPORTER_EMBEDDED_PORT, porque Alloy solo corre un
+# único servidor HTTP (self-metrics, UI y API de componentes conviven en él).
+ALLOY_PORT=17935
 
 # Credenciales de Grafana — nunca hardcodear un password real aquí, se pasan
 # por entorno. Ambas son opcionales; si no se exportan, cae a admin:admin.
@@ -483,15 +482,6 @@ if [[ -n "$OTEL_PROC" ]] || ss -tlnp | grep -q ":${OTELCOL_METRICS}"; then
 else
   opt "OpenTelemetry Collector NO detectado (componente opcional)"
 fi
-
-# NOTA: Redis Sentinel SÍ está asignado a este nodo según el plan (obs-1 lleva
-# "Prometheus+Grafana + Redis Sentinel + Alloy"), pero su instalación y
-# validación corresponden al Sprint 4 (Día 6-8, Tarea 4.4/4.5 "Redis + Sentinel")
-# del plan de implementación, no al Sprint 1 "Observabilidad base" que cubre
-# este script (Tarea 1.5-1.7: Alloy, Prometheus, validación de observabilidad).
-# Se retira este módulo de aquí para no reportar como hallazgo algo que
-# todavía no le toca a esta fase; la validación de Redis Sentinel debe vivir
-# en el script de validación de la capa de Serving (Sprint 4).
 
 # ===========================================================================
 # MÓDULO 7 – Alloy + node-exporter locales en pbigd-plat-obs01

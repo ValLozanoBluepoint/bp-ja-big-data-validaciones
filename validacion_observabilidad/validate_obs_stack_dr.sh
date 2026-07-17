@@ -14,11 +14,6 @@
 #   · Grafana Alloy 1.6.0 → agente local
 #   · node-exporter      → métricas del propio nodo
 #
-# NOTA: obs-dr-1 también lleva Redis Sentinel según el plan, pero su
-# instalación/validación corresponde al Sprint 4 (capa de Serving), no a este
-# script de Observabilidad base (Sprint 1). No se valida aquí — mismo criterio
-# aplicado en validate_obs_stack_principal.sh.
-#
 # Nodos DR que deben ser visibles en este Prometheus:
 #   pbigd-kaf01/02/03-cont, pbigd-stg01/02/03-cont, pbigd-dlh01/02/03-cont
 #   pbigd-proc01/02-cont, pbigd-plat-apps01-cont, pbigd-bd-plat-apps01-cont,
@@ -39,8 +34,12 @@ set -euo pipefail
 PROMETHEUS_PORT=9090
 NODE_EXPORTER_PORT=9100
 NODE_EXPORTER_EMBEDDED_PORT=17935   # exporter unix embebido en Alloy (prometheus.exporter.unix)
-ALLOY_PORT=12345
-ALLOY_VERSION_EXPECTED="1.6.0"
+# ALLOY_PORT: 12345 es el default de Alloy, pero este despliegue lo
+# sobreescribe a 17935 vía CUSTOM_ARGS en /etc/sysconfig/alloy (confirmado en
+# campo el 2026-07-14 en pbigd-plat-apps01, ver validate_obs_agents.sh) — es
+# el MISMO puerto que NODE_EXPORTER_EMBEDDED_PORT, porque Alloy solo corre un
+# único servidor HTTP (self-metrics, UI y API de componentes conviven en él).
+ALLOY_PORT=17935
 
 # Retención mínima aceptable en DR (Prometheus con recursos reducidos)
 MIN_PROMETHEUS_TARGETS=5    # al menos la mitad de nodos DR activos
@@ -54,12 +53,12 @@ DR_NODES=(
   "pbigd-plat-apps01-cont" "pbigd-bd-plat-apps01-cont" "pbigd-plat-obs01-cont"
 )
 
-# PROMETHEUS_DATA: ruta de plan, sin confirmar en campo en pbigd-plat-obs01-cont
-# todavía (en el Principal esta misma ruta de plan resultó ser incorrecta —
-# el path real era /var/lib/prometheus). Verificar con
-# `systemctl cat prometheus | grep storage.tsdb.path` en este nodo DR antes
-# de confiar en el resultado de MÓDULO 9 (Directorios y persistencia).
-PROMETHEUS_DATA="/data/prometheus"
+# PROMETHEUS_DATA: confirmado en campo el 2026-07-17 en pbigd-plat-obs01-cont
+# vía `systemctl cat prometheus | grep storage.tsdb.path` — mismo path real
+# que en Principal (/var/lib/prometheus). La ruta de plan (/data/prometheus)
+# nunca existió en el despliegue real, de ahí el FAIL falso que daba este
+# módulo antes.
+PROMETHEUS_DATA="/var/lib/prometheus"
 # Confirmado en campo el 2026-07-16 (mismo patrón que pbigd-plat-apps01 en
 # Principal): la config real de Alloy vive en /etc/alloy, no /opt/alloy.
 ALLOY_CONFIG_DIR="/etc/alloy"
@@ -214,9 +213,17 @@ if [[ -n "$TARGETS_JSON" ]]; then
     print(len(d['data']['activeTargets']))" 2>/dev/null || echo "0")
   info "Targets: $N_UP activos / $N_TOTAL totales"
 
+  # NOTA: /api/v1/targets solo reporta objetivos scrapeados por PULL. Este
+  # despliegue usa Alloy con remote_write (PUSH) — un nodo DR sano nunca
+  # aparece aquí, así que N_UP queda estructuralmente en ~1 (Prometheus
+  # scrapeándose a sí mismo) sin importar cuántos nodos DR estén realmente
+  # arriba. Se mantiene como WARN (no se sube a hallazgo real) porque no se
+  # puede descartar del todo sin cruzarlo contra la cobertura por remote_write;
+  # la cobertura real ya se valida en el MÓDULO 3 (query 'up{instance=~...}'
+  # por nodo) — verificar ahí antes de escalar este WARN como una caída real.
   [[ "$N_UP" -ge "$MIN_PROMETHEUS_TARGETS" ]] 2>/dev/null \
     && ok "Targets activos: $N_UP (umbral mínimo DR: $MIN_PROMETHEUS_TARGETS)" \
-    || warn "Targets activos bajos: $N_UP (umbral: $MIN_PROMETHEUS_TARGETS) — nodos DR no visibles"
+    || warn "Targets activos (pull) bajos: $N_UP (umbral: $MIN_PROMETHEUS_TARGETS) — esperado en este despliegue basado en remote_write (push); no confundir con cobertura real de nodos, ver MÓDULO 3"
 
   # Listar targets con problemas
   echo "$TARGETS_JSON" | python3 -c "
@@ -279,31 +286,41 @@ fi
 section "MÓDULO 4 · Métricas de servicios críticos DR"
 
 if [[ "$PROM_HEALTH" == "200" ]]; then
-  dr "En contingencia se monitorean principalmente: Kafka, Flink, Redis"
+  dr "En contingencia se monitorean principalmente: Kafka, Flink"
+
+  # Todas las queries de este módulo van URL-encodeadas (igual que en
+  # MÓDULO 2.6 y MÓDULO 3) — sin esto, curl envía la query con '{', '"', '~'
+  # y '.' sin escapar, Prometheus responde con un error que no es el JSON
+  # esperado, el parseo Python falla y el fallback "|| echo 0" lo enmascara
+  # como "sin métricas" aunque el job exista y esté sano (confirmado en campo
+  # el 2026-07-17: job=~"kafka.*" y job=~"node.*" daban 0 con la query sin
+  # encodear, pese a que 'kafka-exporter', 'kafka-kraft-jmx' y 'node' sí
+  # existen como valores reales de la label 'job' en este Prometheus DR).
+  urlenc() { python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$1"; }
 
   # Kafka DR — verificar que hay métricas de JMX o node
   KAFKA_METRIC=$(curl -sf --max-time 5 \
-    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=up{job=~\"kafka.*\"}" \
+    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=$(urlenc 'up{job=~"kafka.*"}')" \
     2>/dev/null | python3 -c \
     "import sys,json; r=json.load(sys.stdin)['data']['result']; print(len(r))" \
     2>/dev/null || echo "0")
   [[ "$KAFKA_METRIC" -gt 0 ]] 2>/dev/null \
     && ok "Métricas Kafka DR presentes: $KAFKA_METRIC serie(s)" \
-    || warn "Sin métricas de Kafka DR — ¿scrape job configurado?"
+    || warn "Sin métricas de Kafka DR (job=~\"kafka.*\") — verificar exporter y scrape en pbigd-kaf0X-cont"
 
   # Flink DR
   FLINK_METRIC=$(curl -sf --max-time 5 \
-    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=up{job=~\"flink.*\"}" \
+    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=$(urlenc 'up{job=~"flink.*"}')" \
     2>/dev/null | python3 -c \
     "import sys,json; r=json.load(sys.stdin)['data']['result']; print(len(r))" \
     2>/dev/null || echo "0")
   [[ "$FLINK_METRIC" -gt 0 ]] 2>/dev/null \
     && ok "Métricas Flink DR presentes: $FLINK_METRIC serie(s)" \
-    || warn "Sin métricas de Flink DR en Prometheus"
+    || warn "Sin métricas de Flink DR (job=~\"flink.*\") — verificar exporter y scrape en pbigd-proc0X-cont
 
   # node-exporter en nodos DR
   NODE_METRIC=$(curl -sf --max-time 5 \
-    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=up{job=~\"node.*\"}" \
+    "http://localhost:${PROMETHEUS_PORT}/api/v1/query?query=$(urlenc 'up{job=~"node.*"}')" \
     2>/dev/null | python3 -c \
     "import sys,json; r=json.load(sys.stdin)['data']['result']; print(len(r))" \
     2>/dev/null || echo "0")
@@ -313,106 +330,76 @@ if [[ "$PROM_HEALTH" == "200" ]]; then
 fi
 
 # ===========================================================================
-# MÓDULO 5 – Grafana Alloy local en pbigd-plat-obs01-cont
+# MÓDULO 5 – Alloy + node-exporter locales en pbigd-plat-obs01-cont
 # ===========================================================================
-section "MÓDULO 5 · Grafana Alloy 1.6.0 (pbigd-plat-obs01-cont)"
+# Misma estructura y criterio que MÓDULO 7 de validate_obs_stack_principal.sh
+# (node-exporter primero, luego Alloy) — para que ambos scripts de stack sean
+# comparables checkeo a checkeo entre Principal y DR.
+section "MÓDULO 5 · Alloy + node-exporter locales (pbigd-plat-obs01-cont)"
 
-if pgrep -x "alloy" &>/dev/null; then
-  ok "Proceso Alloy corriendo en pbigd-plat-obs01-cont"
-
-  ALLOY_HEALTH=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
-    "http://localhost:${ALLOY_PORT}/-/ready" 2>/dev/null || echo "000")
-  [[ "$ALLOY_HEALTH" == "200" ]] \
-    && ok "Alloy ready: HTTP $ALLOY_HEALTH" \
-    || warn "Alloy health: HTTP $ALLOY_HEALTH"
-
-  # Verificar versión
-  ALLOY_BIN=$(command -v alloy 2>/dev/null || \
-    find /usr/bin /usr/local/bin /opt/alloy/bin -name "alloy" -executable 2>/dev/null | head -1)
-  if [[ -n "$ALLOY_BIN" ]]; then
-    ALLOY_VER=$("$ALLOY_BIN" --version 2>/dev/null | grep -oP 'v\K[\d.]+' | head -1 || echo "?")
-    [[ "$ALLOY_VER" == "$ALLOY_VERSION_EXPECTED"* ]] \
-      && ok "Versión Alloy: $ALLOY_VER" \
-      || warn "Versión Alloy: '$ALLOY_VER' (esperada $ALLOY_VERSION_EXPECTED)"
-  fi
-
-  # Verificar que Alloy está enviando a Prometheus local
-  ALLOY_RW=$(curl -sf --max-time 5 "http://localhost:${ALLOY_PORT}/metrics" 2>/dev/null \
-    | grep "prometheus_remote_storage_samples_total" | head -1 || echo "")
-  [[ -n "$ALLOY_RW" ]] \
-    && ok "Alloy enviando métricas a Prometheus DR (remote_write activo)" \
-    || warn "No se detecta remote_write en Alloy DR"
-else
-  fail "Alloy NO está corriendo en pbigd-plat-obs01-cont — sin agente de observabilidad local"
-fi
-
-# Configuración de Alloy
-ALLOY_CFG=$(find "$ALLOY_CONFIG_DIR" /etc/alloy \
-  -name "*.alloy" -o -name "*.river" 2>/dev/null | head -3 || echo "")
-if [[ -n "$ALLOY_CFG" ]]; then
-  ok "Configuración Alloy encontrada"
-  # En DR, Alloy debe apuntar a Prometheus LOCAL (no al pbigd-plat-obs01 del principal)
-  while IFS= read -r CFG; do
-    grep -q "localhost\|127.0.0.1\|pbigd-plat-obs01-cont" "$CFG" 2>/dev/null \
-      && ok "  ↳ Alloy apunta a Prometheus LOCAL (correcto para DR)" \
-      || warn "  ↳ Alloy puede estar apuntando a pbigd-plat-obs01 en lugar del Prometheus local"
-  done <<< "$ALLOY_CFG"
-else
-  warn "Configuración de Alloy no encontrada"
-fi
-
-# ===========================================================================
-# MÓDULO 6 – node-exporter en pbigd-plat-obs01-cont
-# ===========================================================================
-section "MÓDULO 6 · node-exporter local (pbigd-plat-obs01-cont)"
-
-# node-exporter puede correr standalone (:9100) o embebido en Alloy
-# (prometheus.exporter.unix en :17935). Ambos son válidos.
+# node-exporter — puede correr standalone (:9100) o embebido en Alloy
+# (prometheus.exporter.unix en :17935). Ambos son válidos; solo se falla
+# si ninguno de los dos responde.
 if ss -tlnp | grep -q ":${NODE_EXPORTER_EMBEDDED_PORT}"; then
   ok "node-exporter embebido en Alloy activo en pbigd-plat-obs01-cont (puerto $NODE_EXPORTER_EMBEDDED_PORT)"
-  NE_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+  NE_SELF=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
     "http://localhost:${NODE_EXPORTER_EMBEDDED_PORT}/metrics" 2>/dev/null || echo "000")
-  [[ "$NE_HTTP" == "200" ]] \
-    && ok "node-exporter embebido /metrics: HTTP $NE_HTTP" \
-    || warn "node-exporter embebido /metrics: HTTP $NE_HTTP"
+  [[ "$NE_SELF" == "200" ]] \
+    && ok "node-exporter embebido responde /metrics" \
+    || warn "node-exporter embebido /metrics: HTTP $NE_SELF"
 elif ss -tlnp | grep -q ":${NODE_EXPORTER_PORT}"; then
   ok "node-exporter standalone activo en pbigd-plat-obs01-cont (puerto $NODE_EXPORTER_PORT)"
-  NE_HTTP=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+  NE_SELF=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
     "http://localhost:${NODE_EXPORTER_PORT}/metrics" 2>/dev/null || echo "000")
-  [[ "$NE_HTTP" == "200" ]] \
-    && ok "node-exporter standalone /metrics: HTTP $NE_HTTP" \
-    || warn "node-exporter standalone /metrics: HTTP $NE_HTTP"
+  [[ "$NE_SELF" == "200" ]] \
+    && ok "node-exporter standalone responde /metrics" \
+    || warn "node-exporter standalone /metrics: HTTP $NE_SELF"
 else
-  fail "node-exporter NO activo en pbigd-plat-obs01-cont (ni embebido :$NODE_EXPORTER_EMBEDDED_PORT ni standalone :$NODE_EXPORTER_PORT)"
+  fail "node-exporter NO activo en pbigd-plat-obs01-cont (ni embebido :$NODE_EXPORTER_EMBEDDED_PORT ni standalone :$NODE_EXPORTER_PORT) — nodo de obs ciego a sí mismo"
 fi
 
+# Alloy
+pgrep -x "alloy" &>/dev/null \
+  && ok "Alloy corriendo en pbigd-plat-obs01-cont" \
+  || warn "Alloy no corriendo en pbigd-plat-obs01-cont"
+
+ALLOY_SELF=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+  "http://localhost:${ALLOY_PORT}/-/ready" 2>/dev/null || echo "000")
+[[ "$ALLOY_SELF" == "200" ]] \
+  && ok "Alloy en pbigd-plat-obs01-cont ready: HTTP $ALLOY_SELF" \
+  || warn "Alloy en pbigd-plat-obs01-cont: HTTP $ALLOY_SELF"
+
 # ===========================================================================
-# MÓDULO 7 – systemd – persistencia crítica en DR
+# MÓDULO 6 – systemd – persistencia crítica en DR
 # ===========================================================================
-section "MÓDULO 7 · systemd – persistencia en DR"
+section "MÓDULO 6 · systemd – persistencia en DR"
 
 dr "En DR, autoarranque es OBLIGATORIO para todos los servicios"
 
-for UNIT in "prometheus" "alloy" "grafana-alloy" "node_exporter" \
-             "node-exporter"; do
+# Mismo criterio que MÓDULO 11 de validate_obs_stack_principal.sh: todos los
+# servicios de DR son mandatorios (no hay componentes opcionales en el DC
+# Alterno), así que un servicio no activo se reporta siempre como WARN, no se
+# omite en silencio.
+check_svc() {
+  local UNIT=$1 DESC=$2
   if systemctl is-active --quiet "$UNIT" 2>/dev/null; then
-    ok "Servicio activo: $UNIT"
+    ok "Servicio activo: $UNIT ($DESC)"
     systemctl is-enabled --quiet "$UNIT" 2>/dev/null \
       && ok "  ↳ Habilitado en boot (correcto para DR)" \
       || fail "  ↳ NO habilitado en boot — NO sobrevivirá failover"
+  else
+    warn "Servicio '$UNIT' no activo — no se detectó como unidad systemd ni como contenedor Podman en este nodo"
   fi
-done
+}
 
-# Verificar también unidades Podman de contenedores
-for CONTAINER_UNIT in "container-prometheus" "container-alloy"; do
-  systemctl is-active --quiet "$CONTAINER_UNIT" 2>/dev/null \
-    && ok "Contenedor activo vía systemd: $CONTAINER_UNIT" || true
-done
+check_svc "prometheus"     "Prometheus básico DR"
+check_svc "alloy"          "Grafana Alloy agente"
+check_svc "node_exporter"  "node-exporter"
 
 # ===========================================================================
-# MÓDULO 8 – Conectividad con pbigd-plat-obs01 del DC Principal (post-recuperación)
+# MÓDULO 7 – Conectividad con pbigd-plat-obs01 del DC Principal (post-recuperación)
 # ===========================================================================
-section "MÓDULO 8 · Conectividad con DC Principal (referencia)"
+section "MÓDULO 7 · Conectividad con DC Principal (referencia)"
 
 # OBS1_HOST: "pbigd-plat-obs01" es la etiqueta del plan (hostnames.txt), pero
 # el nombre real registrado en el DNS interno (jardinazuayo.fin.ec) es "escila"
@@ -437,9 +424,9 @@ else
 fi
 
 # ===========================================================================
-# MÓDULO 9 – Datos persistidos en TSDB DR
+# MÓDULO 8 – Datos persistidos en TSDB DR
 # ===========================================================================
-section "MÓDULO 9 · Datos TSDB y persistencia"
+section "MÓDULO 8 · Datos TSDB y persistencia"
 
 if [[ -d "$PROMETHEUS_DATA" ]]; then
   # "|| true" fuera del $(...): con pipefail, du puede salir con status != 0

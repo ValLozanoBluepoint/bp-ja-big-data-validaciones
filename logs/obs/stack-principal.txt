@@ -1,0 +1,138 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Stack Observabilidad DC Principal  (pbigd-plat-obs01)        ║
+║   Prometheus 3.5.1 · Grafana 12.3.4 · Loki 3.6.5              ║
+║   Tempo 2.10.1 · OTel Collector 0.146.1                        ║
+║   Fecha : 2026-07-17 16:35:00                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS y prerequisitos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP sincronizado
+  [INFO] Espacio libre en /data: 393 GB (pbigd-plat-obs01 tiene 500 GB asignados)
+  [OK]  Espacio libre suficiente: 393 GB
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Prometheus 3.5.1 (MANDATORIO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Proceso prometheus corriendo
+  [OK]  Puerto 9090 escuchando
+  [OK]  Prometheus health: HTTP 200
+  [OK]  Prometheus ready: HTTP 200
+  [INFO] Versión Prometheus: 3.5.1
+  [OK]  Versión Prometheus correcta: 3.5.1
+  [OK]  API /targets responde
+  [INFO]   Targets UP: 1  DOWN/UNKNOWN: 0  TOTAL: 1
+  [INFO] Targets scrapeados directamente por Prometheus (pull): 1 — no confundir con cobertura de nodos vía remote_write (push), ver MÓDULO 8
+  [OK]    Métrica activa: up (36 series)
+  [OK]    Métrica activa: node_cpu_seconds_total (448 series)
+  [OK]    Métrica activa: node_memory_MemTotal_bytes (14 series)
+  [INFO] Retención TSDB configurada: 30d
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Grafana 12.3.4 (MANDATORIO)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Grafana activo (proceso o puerto 3000)
+  [OK]  Puerto 3000 escuchando (Grafana UI)
+  [OK]  Grafana health check OK: HTTP 200
+  [INFO] Versión Grafana: 12.3.4
+  [OK]  Versión Grafana correcta: 12.3.4
+  [WARN] No se pudo validar datasources vía API con usuario 'admin' (Basic Auth) — validar manualmente en la UI de Grafana: Connections > Data sources
+  [WARN] No se pudo validar dashboards vía API con usuario 'admin' (Basic Auth) — validar manualmente en la UI de Grafana: Dashboards
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Loki 3.6.5 (recomendado)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OPT]  Loki NO detectado en pbigd-plat-obs01 (componente opcional/recomendado)
+  [OPT]  Instalar para centralizar logs de todos los nodos
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Tempo 2.10.1 (opcional)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OPT]  Tempo NO detectado (componente opcional para trazas distribuidas)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 6 · OpenTelemetry Collector 0.146.1 (opcional)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OPT]  OpenTelemetry Collector NO detectado (componente opcional)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 7 · Alloy + node-exporter locales (pbigd-plat-obs01)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  node-exporter embebido en Alloy activo en pbigd-plat-obs01 (puerto 17935)
+  [OK]  node-exporter embebido responde /metrics
+  [OK]  Alloy corriendo en pbigd-plat-obs01
+  [OK]  Alloy en pbigd-plat-obs01 ready: HTTP 200
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 8 · Cobertura de scraping – todos los nodos del DC Principal
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Verificando visibilidad de cada nodo en Prometheus...
+  [OK]  Nodo visible en Prometheus: pbigd-kaf01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-kaf02 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-kaf03 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-stg01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-stg02 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-stg03 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-dlh01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-dlh02 (1 serie(s))
+  [WARN] Nodo SIN datos en Prometheus: pbigd-dlh03 — ¿Alloy/node-exporter instalado?
+  [OK]  Nodo visible en Prometheus: pbigd-proc01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-proc02 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-proc03 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-plat-apps01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-bd-plat-apps01 (1 serie(s))
+  [OK]  Nodo visible en Prometheus: pbigd-plat-obs01 (1 serie(s))
+  [WARN] 1 nodo(s) sin visibilidad: pbigd-dlh03
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 9 · Alertas básicas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Reglas de alerta configuradas: 0
+  [WARN] Sin reglas de alerta — sin notificación automática de fallos
+  [INFO]   Alertas FIRING: 0
+  [WARN]   Alerta no configurada: NodeDown (recomendada)
+  [WARN]   Alerta no configurada: HighCpuUsage (recomendada)
+  [WARN]   Alerta no configurada: HighMemoryUsage (recomendada)
+  [WARN]   Alerta no configurada: DiskSpaceLow (recomendada)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 10 · Directorios y retención
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Directorio existe: /var/lib/prometheus  (uso: 2.7G)
+  [OK]  Directorio existe: /var/lib/grafana  (uso: 1.3M)
+  [OPT]  Directorio opcional no encontrado: /data/loki (Loki/Tempo pueden no estar instalados)
+  [OPT]  Directorio opcional no encontrado: /data/tempo (Loki/Tempo pueden no estar instalados)
+  [INFO] Espacio disponible en /data: 393G
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 11 · systemd – persistencia de servicios
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Servicio activo: prometheus (Prometheus métricas)
+  [OK]    ↳ Habilitado en boot
+  [OK]  Servicio activo: grafana-server (Grafana dashboards)
+  [OK]    ↳ Habilitado en boot
+  [OPT]  Servicio opcional 'loki' no activo (Loki logs)
+  [OPT]  Servicio opcional 'tempo' no activo (Tempo trazas)
+  [OPT]  Servicio opcional 'otelcol' no activo (OTel Collector)
+  [OPT]  Servicio opcional 'otelcol-contrib' no activo (OTel Collector contrib)
+  [WARN] Servicio 'node_exporter' no activo — no se detectó como unidad systemd ni como contenedor Podman en este nodo
+  [OK]  Servicio activo: alloy (Grafana Alloy agente)
+  [OK]    ↳ Habilitado en boot
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Stack Observabilidad DC Principal (pbigd-plat-obs01)           ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Total checks  : 53                                                ║
+║   PASS          : 43                                                ║
+║   FAIL          : 0                                                 ║
+║   WARN          : 10                                                ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log           : /tmp/validate_obs_stack_principal_20260717_163500.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ⚠  Stack funcional con 10 advertencias — revisar componentes opcionales

@@ -1,0 +1,121 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Stack Observabilidad DR (pbigd-plat-obs01-cont)                ║
+║   Prometheus básico · Alloy 1.6.0 · Modo CONTINGENCIA           ║
+║   Nodo  : pbigd-plat-obs01-cont                                   ║
+║   Fecha : 2026-07-17 17:05:55                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [DR]  NOTA: pbigd-plat-obs01-cont opera con capacidad MUY reducida (1 vCPU / 2 GB RAM).
+  [DR]  El stack completo (Grafana, Loki, Tempo) NO aplica en DC Alterno.
+  [DR]  Objetivo: recolección mínima de métricas de los nodos DR activos.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS y prerequisitos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible
+  [OK]  NTP sincronizado
+  [INFO] Recursos de pbigd-plat-obs01-cont: 1 vCPU / 1 GB RAM
+  [OK]  RAM disponible: 1 GB (mín 2 GB para Prometheus básico)
+  [OK]  vCPU disponibles: 1
+  [INFO] Espacio libre en /data: 98 GB
+  [OK]  Espacio libre suficiente: 98 GB para TSDB reducida
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Prometheus básico (MANDATORIO en DR)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Proceso prometheus corriendo en pbigd-plat-obs01-cont
+  [OK]  Puerto 9090 escuchando
+  [OK]  Prometheus health OK: HTTP 200
+  [OK]  Prometheus ready: HTTP 200
+  [INFO] Versión Prometheus DR: 3.5.1
+  [OK]  Versión Prometheus DR identificada: 3.5.1
+  [INFO] Prometheus RAM usage: 147 MB
+  [OK]  Consumo de RAM Prometheus dentro de límites: 147 MB
+  [INFO] Retención TSDB configurada: 30d
+  [DR]  En DR se recomienda retención corta (7d-15d) para no saturar los 200 GB
+  [OK]  API /targets responde en Prometheus DR
+  [INFO] Targets: 1 activos / 1 totales
+  [WARN] Targets activos (pull) bajos: 1 (umbral: 5) — esperado en este despliegue basado en remote_write (push); no confundir con cobertura real de nodos, ver MÓDULO 3
+  Todos los targets configurados están UP
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Cobertura de scraping – nodos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Verificando visibilidad de nodos DR en Prometheus...
+  [OK]  Nodo DR visible: pbigd-kaf01-cont
+  [OK]  Nodo DR visible: pbigd-kaf02-cont
+  [OK]  Nodo DR visible: pbigd-kaf03-cont
+  [OK]  Nodo DR visible: pbigd-stg01-cont
+  [OK]  Nodo DR visible: pbigd-stg02-cont
+  [OK]  Nodo DR visible: pbigd-stg03-cont
+  [OK]  Nodo DR visible: pbigd-dlh01-cont
+  [OK]  Nodo DR visible: pbigd-dlh02-cont
+  [OK]  Nodo DR visible: pbigd-dlh03-cont
+  [OK]  Nodo DR visible: pbigd-proc01-cont
+  [OK]  Nodo DR visible: pbigd-proc02-cont
+  [OK]  Nodo DR visible: pbigd-plat-apps01-cont
+  [OK]  Nodo DR visible: pbigd-bd-plat-apps01-cont
+  [OK]  Nodo DR visible: pbigd-plat-obs01-cont
+  [OK]  Todos los nodos DR son visibles en Prometheus
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Métricas de servicios críticos DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [DR]  En contingencia se monitorean principalmente: Kafka, Flink
+  [WARN] Sin métricas de Kafka DR (job=~"kafka.*") — verificar exporter y scrape en pbigd-kaf0X-cont
+  [WARN] Sin métricas de Flink DR (job=~"flink.*") — verificar exporter y scrape en pbigd-proc0X-cont
+  [OK]  Métricas node-exporter DR presentes: 15 nodo(s)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Alloy + node-exporter locales (pbigd-plat-obs01-cont)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  node-exporter embebido en Alloy activo en pbigd-plat-obs01-cont (puerto 17935)
+  [OK]  node-exporter embebido responde /metrics
+  [OK]  Alloy corriendo en pbigd-plat-obs01-cont
+  [OK]  Alloy en pbigd-plat-obs01-cont ready: HTTP 200
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 6 · systemd – persistencia en DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [DR]  En DR, autoarranque es OBLIGATORIO para todos los servicios
+  [OK]  Servicio activo: prometheus (Prometheus básico DR)
+  [OK]    ↳ Habilitado en boot (correcto para DR)
+  [OK]  Servicio activo: alloy (Grafana Alloy agente)
+  [OK]    ↳ Habilitado en boot (correcto para DR)
+  [WARN] Servicio 'node_exporter' no activo — no se detectó como unidad systemd ni como contenedor Podman en este nodo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 7 · Conectividad con DC Principal (referencia)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [DR]  pbigd-plat-obs01-cont opera de forma autónoma en contingencia.
+  [DR]  La conectividad con el Principal (escila.jardinazuayo.fin.ec) solo es necesaria post-recuperación.
+  [INFO] escila.jardinazuayo.fin.ec (DC Principal) alcanzable — posible recuperación en curso
+  [INFO]   Prometheus en escila.jardinazuayo.fin.ec accesible — considerar migración de tráfico
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 8 · Datos TSDB y persistencia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Directorio TSDB existe: /var/lib/prometheus (uso: 2.3G)
+  [INFO] Bloques TSDB actuales: 15
+  [OK]  Datos históricos presentes en TSDB DR (15 bloques)
+  [OK]  WAL de Prometheus presente: /var/lib/prometheus/wal
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Stack Observabilidad DR (pbigd-plat-obs01-cont)                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo         : pbigd-plat-obs01-cont                             ║
+║   Total checks : 44                                                ║
+║   PASS         : 40                                                ║
+║   FAIL         : 0                                                 ║
+║   WARN         : 4                                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log          : /tmp/validate_obs_dr_20260717_170555.log          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ⚠  Observabilidad DR funcional con 4 advertencias
+
+  [DR]  Stack completo (Grafana/Loki/Tempo) disponible únicamente en pbigd-plat-obs01 (DC Principal).
+  [DR]  Para acceder a dashboards en contingencia: usar tunnel SSH hacia pbigd-plat-obs01-cont:9090

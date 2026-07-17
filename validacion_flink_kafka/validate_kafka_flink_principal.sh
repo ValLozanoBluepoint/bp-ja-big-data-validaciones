@@ -32,6 +32,21 @@
 #    ./validate_kafka_flink_principal.sh [--jobmanager-host host] \
 #        [--kafka-node host] [--skip-functional-test]
 # =============================================================================
+#
+#  *** DEPRECADO ***
+#  Este script asume SSH sin contraseña del usuario admapl desde el nodo
+#  Flink hacia los nodos Kafka (Módulo 3). Se confirmó que ese acceso NO
+#  existe en el entorno real de Jardín Azuayo, por lo que este script no
+#  puede ejecutarse tal como está.
+#
+#  Reemplazado por el par:
+#    - validate_kafka_flink_principal_kafka.sh  (manual, en un nodo Kafka)
+#    - validate_kafka_flink_principal_flink.sh  (automático, en el JobManager)
+#
+#  Ver preparacion_integracion_kafka_flink.md para el procedimiento completo.
+#  Este archivo se conserva como referencia/fallback por si en algún momento
+#  se habilita el acceso SSH admapl→Kafka.
+# =============================================================================
 
 set -uo pipefail
 
