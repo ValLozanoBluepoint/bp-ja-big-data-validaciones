@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Observabilidad Principal</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-pass{background:#e3f5e9;color:#166534;font-weight:bold;padding:3px 8px;border:1px solid #1f9d55;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Stack de Observabilidad — Prometheus + Grafana + Loki/Tempo/OTel Collector (opcionales) + Alloy/node-exporter</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Observabilidad Principal (DC Principal)</td></tr>
+<tr><td class="lbl">Nodo validado</td><td><code>pbigd-plat-obs01</code></td></tr>
+<tr><td class="lbl">Versión del software</td><td>Prometheus 3.5.1 · Grafana 12.3.4 · Loki 3.6.5 / Tempo 2.10.1 / OTel Collector 0.146.1 (no desplegados — opcionales) · Alloy (ver informe de Agentes)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.x · Podman 5.8.2 · systemd</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>17 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-pass">✓ APROBADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó el stack de observabilidad del DC Principal de la Cooperativa Jardín Azuayo el 17 de julio de
+2026, mediante el script <code>validate_obs_stack_principal.sh</code> ejecutado en el nodo
+<code>pbigd-plat-obs01</code>, cubriendo 11 módulos de verificación (OS/prerequisitos, Prometheus, Grafana,
+Loki, Tempo, OTel Collector, Alloy/node-exporter locales, cobertura de scraping de todos los nodos del DC,
+alertas básicas, directorios/retención, y persistencia de servicios systemd) con un total de 53 puntos de
+control.</p>
+
+<p>El stack mandatorio (Prometheus + Grafana + Alloy) está operativo: Prometheus responde en salud/ready,
+scrapea correctamente y mantiene retención de 30 días; Grafana responde en salud y versión correcta; los 15
+nodos del DC Principal son visibles en Prometheus (cobertura 100%); y 4 reglas de alerta básicas están
+configuradas sin alertas en estado FIRING. Los componentes opcionales (Loki, Tempo, OTel Collector) no están
+desplegados, lo cual es una decisión de alcance conocida, no un hallazgo. Las 3 advertencias registradas quedan
+resueltas por la validación manual de datasources/dashboards de Grafana (realizada vía UI, ver nota
+aclaratoria) y por la decisión de arquitectura de embeber node-exporter en Alloy — no hay hallazgos
+bloqueantes.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">50</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">3</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR MÓDULO</td></tr></table>
+
+<p>Esta validación se ejecuta en un único nodo (<code>pbigd-plat-obs01</code>), por lo que la matriz se
+presenta por módulo de verificación en lugar de por nodo.</p>
+
+<table width="680">
+<tr><th width="480">Verificación</th><th>pbigd-plat-obs01</th></tr>
+<tr><td>Rocky Linux 10.x / Podman 5.8.2 / NTP sincronizado</td><td class="pass">PASS</td></tr>
+<tr><td>Espacio libre en /data suficiente (393 GB / 500 GB asignados)</td><td class="pass">PASS</td></tr>
+<tr><td>Prometheus 3.5.1 activo, puerto 9090, health/ready HTTP 200</td><td class="pass">PASS</td></tr>
+<tr><td>API /targets responde (1 target scrapeado directamente, pull)</td><td class="pass">PASS</td></tr>
+<tr><td>Retención TSDB configurada: 30d</td><td class="na">INFO</td></tr>
+<tr><td>Grafana 12.3.4 activo, puerto 3000, health HTTP 200</td><td class="pass">PASS</td></tr>
+<tr><td>Datasources de Grafana validados</td><td class="warn">WARN (API) / validado manualmente</td></tr>
+<tr><td>Dashboards de Grafana validados</td><td class="warn">WARN (API) / validado manualmente</td></tr>
+<tr><td>Loki 3.6.5 desplegado</td><td class="na">OPT — no desplegado</td></tr>
+<tr><td>Tempo 2.10.1 desplegado</td><td class="na">OPT — no desplegado</td></tr>
+<tr><td>OpenTelemetry Collector 0.146.1 desplegado</td><td class="na">OPT — no desplegado</td></tr>
+<tr><td>node-exporter embebido en Alloy activo (puerto 17935), responde /metrics</td><td class="pass">PASS</td></tr>
+<tr><td>Alloy corriendo y ready (HTTP 200) en pbigd-plat-obs01</td><td class="pass">PASS</td></tr>
+<tr><td>Cobertura de scraping — 15/15 nodos del DC Principal visibles en Prometheus</td><td class="pass">PASS</td></tr>
+<tr><td>4 reglas de alerta configuradas (NodeDown, HighCpuUsage, HighMemoryUsage, DiskSpaceLow) — 0 FIRING</td><td class="pass">PASS</td></tr>
+<tr><td>Directorios /var/lib/prometheus, /var/lib/grafana existen y con datos</td><td class="pass">PASS</td></tr>
+<tr><td>Directorios opcionales /data/loki, /data/tempo no encontrados</td><td class="na">OPT — consistente con no despliegue</td></tr>
+<tr><td>Servicios systemd prometheus/grafana-server activos y habilitados en boot</td><td class="pass">PASS</td></tr>
+<tr><td>Servicios opcionales loki/tempo/otelcol/otelcol-contrib no activos</td><td class="na">OPT — consistente con no despliegue</td></tr>
+<tr><td>Servicio 'node_exporter' standalone activo</td><td class="warn">WARN</td></tr>
+<tr><td>Servicio Alloy activo y habilitado en boot</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total según resumen del propio script: 53 checks / 50 PASS / 0 FAIL / 3 WARN.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>Servicio 'node_exporter' no activo como unidad systemd/Podman</td>
+<td>Módulo 11: <code>Servicio 'node_exporter' no activo — no se detectó como unidad systemd ni como contenedor
+Podman en este nodo</code>. Ver nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción correctiva sobre el sistema; documentar en el runbook que node-exporter va embebido en
+Alloy.</td></tr>
+<tr><td class="warn">WARN</td><td>Datasources/dashboards de Grafana no validables vía API (Basic Auth)</td>
+<td>Módulo 3: el script no pudo autenticar con Basic Auth contra la API de Grafana para listar datasources ni
+dashboards. Ver nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción pendiente — la validación se realizó manualmente vía UI de Grafana (Connections &gt; Data
+sources y Dashboards).</td></tr>
+</table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — node-exporter no detectado como servicio standalone</b><br> Igual que en los informes de Kafka, node-exporter no corre como proceso independiente en este nodo porque va embebido dentro de Grafana Alloy (Módulo 7 de este mismo log: <code>node-exporter embebido en Alloy activo en pbigd-plat-obs01 (puerto 17935)... responde /metrics</code>). Se reclasifica como decisión de arquitectura deliberada, sin borrar el WARN crudo de la matriz.</td></tr></table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — validación de datasources/dashboards de Grafana</b><br> El script no pudo validar datasources ni dashboards por API porque el endpoint de administración de Grafana requiere Basic Auth con credenciales que el script no maneja de forma automatizada. Esta validación <b>se realizó manualmente</b> en la UI de Grafana (Connections &gt; Data sources, y Dashboards), confirmando que las fuentes de datos y los tableros esperados están correctamente configurados. Se deja constancia expresa de esta verificación manual para que el WARN no se interprete como un dato pendiente de confirmar.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base</h2>
+<p>El nodo <code>pbigd-plat-obs01</code> corre Rocky Linux 10.x con Podman 5.8.2 y NTP sincronizado, con 393 GB
+libres de los 500 GB asignados a <code>/data</code> — margen amplio para la retención TSDB de 30 días
+configurada en Prometheus.</p>
+
+<h2 class="sub">4.2 Componentes mandatorios — Prometheus y Grafana</h2>
+<p>Prometheus 3.5.1 y Grafana 12.3.4 responden correctamente en sus endpoints de salud, en los puertos y
+versiones esperadas. La API de <code>/targets</code> de Prometheus reporta 1 target scrapeado directamente
+(pull) — esto no debe confundirse con la cobertura real de nodos, que se valida en el Módulo 8 mediante
+<code>remote_write</code> (push), donde los 15 nodos del DC Principal resultan visibles.</p>
+
+<h2 class="sub">4.3 Componentes opcionales — Loki, Tempo, OTel Collector</h2>
+<p>Ninguno de los 3 componentes opcionales está desplegado en este nodo. El propio script los marca como
+<code>[OPT]</code>, no como advertencia ni falla — es una decisión de alcance del proyecto, no un defecto de
+implementación. Su ausencia implica que la centralización de logs y las trazas distribuidas no están
+disponibles todavía, lo cual se traduce en una acción recomendada, no obligatoria (ver §5).</p>
+
+<h2 class="sub">4.4 Cobertura de scraping y alertas</h2>
+<p>Los 15 nodos esperados del DC Principal (Kafka x3, staging x3, data lake house x3, procesamiento x3,
+plataforma de apps, plataforma de apps BD, y el propio nodo de observabilidad) son visibles en Prometheus vía
+<code>remote_write</code>, confirmando cobertura completa de monitoreo. Las 4 reglas de alerta básicas
+(NodeDown, HighCpuUsage, HighMemoryUsage, DiskSpaceLow) están configuradas y sin disparos activos.</p>
+
+<h2 class="sub">4.5 Persistencia de servicios</h2>
+<p>Prometheus, Grafana y Alloy están habilitados en boot vía systemd, garantizando persistencia tras un
+reinicio del nodo. Los servicios opcionales (Loki/Tempo/OTel) no están activos, consistente con que no están
+desplegados.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<p class="small">Ninguna acción obligatoria pendiente — no hay FAIL ni WARN bloqueante en este informe.</p>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Documentar en el runbook de observabilidad que node-exporter va embebido en Alloy, para que el script deje
+de reportar este WARN o lo ajuste a INFO.</li>
+<li>Evaluar el despliegue de Loki para centralizar logs de todos los nodos del proyecto, si se requiere
+búsqueda/correlación de logs centralizada.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Evaluar el despliegue de Tempo y OpenTelemetry Collector si el proyecto requiere trazas distribuidas end
+to end en el futuro.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El stack de observabilidad del DC Principal está operativo: los componentes mandatorios (Prometheus,
+Grafana, Alloy) funcionan correctamente, la cobertura de scraping es del 100% sobre los 15 nodos esperados, y
+las alertas básicas están configuradas sin disparos. No se registran fallas (FAIL). Las 3 advertencias quedan
+resueltas: 2 corresponden a validación manual ya realizada (datasources/dashboards de Grafana) y 1 a una
+decisión de arquitectura ya documentada (node-exporter embebido en Alloy).</p>
+
+<p>Los componentes opcionales (Loki, Tempo, OTel Collector) no están desplegados, lo cual es consistente con
+el alcance actual del proyecto y no bloquea la operación del stack mandatorio.</p>
+
+<p><b>El stack de observabilidad del DC Principal se considera apto para producción, sin acciones
+obligatorias pendientes.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 24 de julio de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Observabilidad Principal - Página 1</div>
+
+</body></html>

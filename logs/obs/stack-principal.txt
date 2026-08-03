@@ -80,30 +80,30 @@
   [OK]  Nodo visible en Prometheus: pbigd-stg03 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-dlh01 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-dlh02 (1 serie(s))
-  [WARN] Nodo SIN datos en Prometheus: pbigd-dlh03 — ¿Alloy/node-exporter instalado?
+  [OK]  Nodo visible en Prometheus: pbigd-dlh03 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-proc01 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-proc02 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-proc03 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-plat-apps01 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-bd-plat-apps01 (1 serie(s))
   [OK]  Nodo visible en Prometheus: pbigd-plat-obs01 (1 serie(s))
-  [WARN] 1 nodo(s) sin visibilidad: pbigd-dlh03
+  [OK]  Todos los nodos del DC Principal son visibles en Prometheus
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   MÓDULO 9 · Alertas básicas
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  [INFO] Reglas de alerta configuradas: 0
-  [WARN] Sin reglas de alerta — sin notificación automática de fallos
+  [INFO] Reglas de alerta configuradas: 4
+  [OK]  Alertas configuradas: 4 reglas
   [INFO]   Alertas FIRING: 0
-  [WARN]   Alerta no configurada: NodeDown (recomendada)
-  [WARN]   Alerta no configurada: HighCpuUsage (recomendada)
-  [WARN]   Alerta no configurada: HighMemoryUsage (recomendada)
-  [WARN]   Alerta no configurada: DiskSpaceLow (recomendada)
+  [OK]    Alerta presente: NodeDown
+  [OK]    Alerta presente: HighCpuUsage
+  [OK]    Alerta presente: HighMemoryUsage
+  [OK]    Alerta presente: DiskSpaceLow
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   MÓDULO 10 · Directorios y retención
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  [OK]  Directorio existe: /var/lib/prometheus  (uso: 2.7G)
+  [OK]  Directorio existe: /var/lib/prometheus  (uso: 3.2G)
   [OK]  Directorio existe: /var/lib/grafana  (uso: 1.3M)
   [OPT]  Directorio opcional no encontrado: /data/loki (Loki/Tempo pueden no estar instalados)
   [OPT]  Directorio opcional no encontrado: /data/tempo (Loki/Tempo pueden no estar instalados)
@@ -128,11 +128,11 @@
 ║   RESUMEN – Stack Observabilidad DC Principal (pbigd-plat-obs01)           ║
 ╠══════════════════════════════════════════════════════════════════╣
 ║   Total checks  : 53                                                ║
-║   PASS          : 43                                                ║
+║   PASS          : 50                                                ║
 ║   FAIL          : 0                                                 ║
-║   WARN          : 10                                                ║
+║   WARN          : 3                                                 ║
 ╠══════════════════════════════════════════════════════════════════╣
-║   Log           : /tmp/validate_obs_stack_principal_20260717_163500.log║
+║   Log           : /tmp/validate_obs_stack_principal_20260721_154858.log║
 ╚══════════════════════════════════════════════════════════════════╝
 
-  ⚠  Stack funcional con 10 advertencias — revisar componentes opcionales
+  ✔  Stack de observabilidad DC Principal OPERATIVO

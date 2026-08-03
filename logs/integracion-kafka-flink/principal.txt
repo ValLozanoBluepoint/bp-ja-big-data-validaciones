@@ -1,0 +1,161 @@
+== KAFKA
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Kafka↔Flink — PRINCIPAL · LADO KAFKA   ║
+║   Fecha : 2026-07-21 16:53:40                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución: pbigd-kaf01
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Contenedor Kafka local
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor Kafka corriendo en pbigd-kaf01: Up 5 days
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Creación de topic de prueba
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Creando topic de prueba 'bluepoint-kafka-flink-it-1784670820'...
+  [OK]  Topic de prueba creado: bluepoint-kafka-flink-it-1784670820
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Producción de mensajes de prueba
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Produciendo 3 mensajes de prueba en 'bluepoint-kafka-flink-it-1784670820'...
+  [OK]  Mensajes de prueba producidos: 3
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Lado Kafka · Integración Kafka↔Flink · PRINCIPAL     ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-kaf01                                        ║
+║   Total checks  : 3                                                  ║
+║   PASS          : 3                                                  ║
+║   FAIL          : 0                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Topic de prueba listo: bluepoint-kafka-flink-it-1784670820
+  Siguiente paso: ejecutar en el JobManager (pbigd-plat-apps01):
+    ./validate_kafka_flink_principal_flink.sh --topic bluepoint-kafka-flink-it-1784670820
+  Al finalizar, volver aquí y ejecutar:
+    ./validate_kafka_flink_principal_kafka.sh --cleanup bluepoint-kafka-flink-it-1784670820
+
+== TMs
+
+[admapl@pbigd-proc01 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf01/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc01 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf02/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc01 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf03/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc01 ~]$
+
+[admapl@pbigd-proc02 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf01/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc02 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf02/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc02 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf03/9092' && echo OPEN || echo CLOSED
+OPEN
+
+[admapl@pbigd-proc03 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf01/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc03 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf02/9092' && echo OPEN || echo CLOSED
+OPEN
+[admapl@pbigd-proc03 ~]$ timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf03/9092' && echo OPEN || echo CLOSED
+OPEN
+
+== JM
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Kafka↔Flink — PRINCIPAL · LADO FLINK   ║
+║   Fecha : 2026-07-21 16:54:08                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución: pbigd-plat-apps01
+  [INFO] JobManager Flink : pbigd-plat-apps01 (http://pbigd-plat-apps01:8081)
+  [INFO] TaskManagers     : pbigd-proc01 pbigd-proc02 pbigd-proc03
+  [INFO] Brokers Kafka    : pbigd-kaf01 pbigd-kaf02 pbigd-kaf03
+  [INFO] Topic de prueba (creado previamente en Kafka): bluepoint-kafka-flink-it-1784670820
+
+  Nota de alcance: este script asume que validate_kafka_principal.sh,
+  validate_flink_principal.sh y validate_kafka_flink_principal_kafka.sh
+  ya se ejecutaron. Aquí solo se valida el lado Flink de la integración.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Conector Kafka en el contenedor JobManager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor JobManager local corriendo: Up 28 minutes
+  [OK]  Conector Kafka encontrado en /opt/flink/lib/: flink-sql-connector-kafka-5.0.0-2.2.jar
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Conectividad Flink → Kafka (puerto 9092)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Verificando alcance a los 3 brokers Kafka desde pbigd-plat-apps01 (JobManager)...
+  [OK]  TCP pbigd-kaf01:9092 alcanzable desde pbigd-plat-apps01
+  [OK]  TCP pbigd-kaf02:9092 alcanzable desde pbigd-plat-apps01
+  [OK]  TCP pbigd-kaf03:9092 alcanzable desde pbigd-plat-apps01
+  [OK]  Los 3 brokers Kafka son alcanzables desde el JobManager
+  [INFO] Se asume que la conectividad TCP 9092 ya fue validada de forma independiente en cada TaskManager (sin SSH disponible, no se puede automatizar desde aquí). Comando de referencia:
+  [INFO] En CADA TaskManager (pbigd-proc01 pbigd-proc02 pbigd-proc03), correr localmente:
+  [INFO]     timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf01/9092' && echo OPEN || echo CLOSED   # pbigd-kaf01
+  [INFO]     timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf02/9092' && echo OPEN || echo CLOSED   # pbigd-kaf02
+  [INFO]     timeout 3 bash -c 'cat < /dev/null > /dev/tcp/pbigd-kaf03/9092' && echo OPEN || echo CLOSED   # pbigd-kaf03
+  [INFO] Los 3 brokers deben responder OPEN desde CADA TaskManager para dar por validado este punto.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Integración funcional Kafka → Flink (end-to-end)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Generando job Flink SQL (fuente Kafka → sink print) contra topic existente 'bluepoint-kafka-flink-it-1784670820'...
+  [OK]  Script SQL copiado al contenedor JobManager
+  [INFO] Sometiendo job Flink SQL (background)...
+  [INFO] Esperando 15s a que el job quede RUNNING...
+  [OK]  Job Flink SQL RUNNING confirmado vía REST API (job id: 36a4e1cc66b1a964dbec6f919dae0520)
+  [INFO] Se espera encontrar el mensaje de prueba (prefijo 'bluepoint-it-') en el log de alguno de los TaskManagers (sin SSH disponible, no se puede confirmar desde aquí).
+  [INFO] Esperando 20s para dar tiempo a que el mensaje fluya antes de revisar...
+  [INFO] Correr localmente en cada TaskManager (contenedor correspondiente):
+  [INFO]     [pbigd-proc01]  podman logs flink-tm-1 | grep 'bluepoint-it-'
+  [INFO]     [pbigd-proc02]  podman logs flink-tm-2 | grep 'bluepoint-it-'
+  [INFO]     [pbigd-proc03]  podman logs flink-tm-3 | grep 'bluepoint-it-'
+  [INFO] Si aparecen líneas con el prefijo 'bluepoint-it-' en alguno de los TaskManagers, la integración quedó confirmada.
+  [INFO] (Los logs quedan disponibles aunque el job se cancele a continuación.)
+  [INFO] Cancelando job de prueba...
+  [OK]  Job 36a4e1cc66b1a964dbec6f919dae0520 cancelado vía REST API
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Lado Flink · Integración Kafka↔Flink · PRINCIPAL     ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 9                                                  ║
+║   PASS          : 9                                                  ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 0                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_kafka_flink_principal_flink_20260721_165408.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Integración Kafka↔Flink validada SIN fallos críticos
+
+  Siguiente paso: volver al nodo Kafka y ejecutar:
+    ./validate_kafka_flink_principal_kafka.sh --cleanup bluepoint-kafka-flink-it-1784670820
+
+== KAFKA CLEANUP
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Kafka↔Flink — PRINCIPAL · LADO KAFKA   ║
+║   Fecha : 2026-07-21 16:57:06                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución: pbigd-kaf01
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CLEANUP · Borrando topic de prueba 'bluepoint-kafka-flink-it-1784670820'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Topic de prueba 'bluepoint-kafka-flink-it-1784670820' eliminado
+
+  Cleanup finalizado. PASS=1 FAIL=0
+
+[admapl@pbigd-kaf01 ~]$

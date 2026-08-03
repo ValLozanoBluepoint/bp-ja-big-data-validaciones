@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Kafka DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+.dr{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;margin-bottom:5mm;}
+.dr b{color:#a35c00;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Clúster Kafka — Mensajería distribuida (modo KRaft, sin Zookeeper)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Kafka DR (Datacenter Alterno)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-kaf01-cont</code> · <code>pbigd-kaf02-cont</code> · <code>pbigd-kaf03-cont</code> (broker + controller KRaft, mismo rol en los 3)</td></tr>
+<tr><td class="lbl">Recursos por nodo</td><td>4 vCPU / 7 GB RAM (equivalente a Principal: spec 4 vCPU / 8 GB)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>Apache Kafka 4.0.1 (igual a Principal)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.2 (Red Quartz) · Kernel 6.12.0-124.40.1 · Podman 5.8.2 · systemd/Quadlet (rootless, usuario <code>admapl</code>) · OpenJDK 21.0.8</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>16 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-warn">⚠ APROBADO CON OBSERVACIONES</span></td></tr>
+</table>
+
+<table width="680"><tr><td class="drcell"><b>Nota de diseño DR (Bluepoint):</b> a diferencia de Flink/MinIO, Kafka <b>no reduce capacidad en DR</b> — mismos recursos y umbrales que Principal (3/3 brokers exigidos). Es el punto de entrada crítico de todo el flujo de datos (outbox y replicación); un quórum incompleto (&lt;3/3) se reportaría como FALLO, no como advertencia.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó el clúster Kafka DR (Datacenter Alterno) de la Cooperativa Jardín Azuayo el 16 de julio de 2026,
+mediante el script <code>validate_kafka_dr.sh</code> ejecutado de forma independiente en los 3 nodos del
+clúster (<code>pbigd-kaf01-cont</code>, <code>pbigd-kaf02-cont</code>, <code>pbigd-kaf03-cont</code>),
+cubriendo 8 módulos de verificación con un total de 147 puntos de control (49 por nodo — 2 más que Principal
+por la verificación adicional de recursos equivalentes de DR).</p>
+
+<p>El clúster DR opera en modo KRaft con quórum de 3/3 brokers y controllers activos, capacidad de recursos
+equivalente a Principal (4 vCPU / 7 GB RAM por nodo), y un ciclo funcional completo de topic de prueba
+(crear → producir → consumir → borrar) validado exitosamente con ISR completo (3/3) en los 3 nodos. No se
+registran fallas (FAIL). Las 3 advertencias registradas (una por nodo) corresponden a node-exporter no
+detectado en el puerto 9100, reclasificado como decisión de arquitectura deliberada según la nota aclaratoria
+de la sección 3 — no representa una degradación real de capacidad ni un riesgo para la operación en
+contingencia.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">144</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">3</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Los 3 nodos DR cumplen el mismo rol y ejecutan los mismos módulos del script; los resultados son
+homogéneos entre los 3, con la única advertencia recurrente de node-exporter.</p>
+
+<table width="680">
+<tr><th width="300">Verificación</th><th>pbigd-kaf01-cont</th><th>pbigd-kaf02-cont</th><th>pbigd-kaf03-cont</th></tr>
+<tr><td>SO Rocky Linux 10.2 (Red Quartz)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Kernel 6.12.0-124.40.1</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Podman 5.8.2 (&gt;=5.x)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>systemd operativo (running)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Naming convention del nodo DR (-cont)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Recursos equivalentes a Principal (RAM/vCPU)</td><td class="pass">PASS (7GB/4vCPU)</td><td class="pass">PASS (7GB/4vCPU)</td><td class="pass">PASS (7GB/4vCPU)</td></tr>
+<tr><td>/data/kafka existe, xfs, espacio &gt;=95GB</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>/var/log/kafka existe</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Partición /data independiente</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>KAFKA_HOME presente en el contenedor</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Unidad systemd broker + pod activas/habilitadas</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Contenedor Kafka Up (~45h) · imagen apache/kafka:4.0.1</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Naming convention del contenedor DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Política de reinicio vía systemd/Quadlet (Restart=always)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Linger systemd habilitado (usuario admapl)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto 9092 (broker/client) escuchando</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto 9093 (controller KRaft) escuchando</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Ping + TCP 9092/9093 hacia los otros 2 nodos DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin Zookeeper (puerto 2181 / proceso) — modo KRaft puro</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Quórum de metadata KRaft DR respondiendo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>3 brokers activos en DR (capacidad completa, sin reducir)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Ciclo crear→producir→consumir→borrar topic de prueba DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Replicación interna DR — ISR completo (3/3)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin particiones sub-replicadas en DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Estado TCP 9092 de los 3 nodos del clúster DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Logs /var/log/kafka disponibles, sin errores críticos</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Sin warnings UNKNOWN_TOPIC_ID persistentes</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS (8 históricas, resueltas)</td></tr>
+<tr><td>Sin presión de memoria en logs del contenedor</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>Grafana Alloy activo</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter standalone puerto 9100</td><td class="warn">WARN</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+<tr><td>Versión Kafka 4.0.1 (igual a Principal)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>JDK 21 compatible (mín. 17, no homologada 25)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total por nodo (según resumen del propio script): kaf01-cont 49 checks / 48 PASS / 0 FAIL / 1
+WARN · kaf02-cont 49 / 48 / 0 / 1 · kaf03-cont 49 / 48 / 0 / 1. Suma total: 147 checks / 144 PASS / 0 FAIL / 3 WARN.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>node-exporter no detectado en puerto 9100 (3 nodos DR)</td>
+<td>Módulo 7.4: <code>node-exporter: no detectado en puerto 9100</code> en los 3 nodos. Ver nota aclaratoria
+inmediatamente debajo — no es un hallazgo de infraestructura real ni de capacidad reducida en DR.</td>
+<td>Ninguna acción correctiva sobre el sistema; documentar en el runbook de observabilidad DR que
+node-exporter va embebido en Alloy, igual que en Principal.</td></tr>
+</table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — node-exporter no detectado en :9100</b><br> Igual que en el informe Kafka Principal, el WARN se origina porque no existe un proceso <code>node_exporter</code> standalone en el puerto 9100. La validación de agentes de observabilidad (<code>logs/obs/agent.general.txt</code>, ejecutada precisamente en <code>pbigd-kaf01-cont</code> — uno de los 3 nodos de este mismo informe) confirma directamente que node-exporter va embebido en Grafana Alloy, expuesto en el puerto 17935 (<code>prometheus.exporter.unix: healthy</code>). Es evidencia directa sobre el mismo nodo, no una inferencia por analogía. Se reclasifica como decisión de arquitectura deliberada, sin borrar el WARN crudo de la matriz.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Infraestructura base y persistencia DR</h2>
+<p>Los 3 nodos DR corren el mismo SO, kernel y Podman que Principal, sin degradación de versión. Los recursos
+(4 vCPU / 7 GB RAM) son equivalentes a la especificación de Principal (4 vCPU / 8 GB), consistente con la
+decisión de diseño de no reducir capacidad de Kafka en contingencia. <code>/data/kafka</code> mantiene el mismo
+umbral de 95 GB disponibles verificado en los 3 nodos.</p>
+
+<h2 class="sub">4.2 Ciclo de vida del contenedor y persistencia de servicios</h2>
+<p>Los contenedores <code>kafka-broker-cont-0N</code> llevan ~45 horas de uptime continuo al momento de la
+validación, con política de reinicio gestionada por systemd/Quadlet y linger habilitado — igual patrón que
+Principal, sin diferencias de configuración entre entornos.</p>
+
+<h2 class="sub">4.3 Red/quórum KRaft y capacidad (RTO)</h2>
+<p>El clúster DR mantiene quórum KRaft 3/3 y conectividad TCP/ping completa entre los 3 nodos, sin exigir
+degradación alguna: a diferencia de Flink o MinIO en este mismo proyecto, Kafka DR se valida contra el mismo
+umbral que Principal (3/3 brokers), reflejando su rol como punto de entrada crítico del flujo de datos. Un
+quórum incompleto en DR se trataría como FALLO, no como advertencia — criterio explícito del propio script que
+se preserva en este informe.</p>
+
+<h2 class="sub">4.4 Validación funcional</h2>
+<p>El ciclo de prueba de topic (crear → producir → consumir → borrar) se ejecutó exitosamente en los 3 nodos
+DR con ISR completo (3/3), replicando el mismo comportamiento verificado en Principal. No se detectaron
+particiones sub-replicadas.</p>
+
+<h2 class="sub">4.5 Logs y observabilidad DR</h2>
+<p>Los 3 nodos tienen Alloy activo y logs sin errores críticos. El único punto abierto es node-exporter
+standalone, ya tratado como decisión de arquitectura en la nota aclaratoria de §3.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<p class="small">Ninguna acción obligatoria pendiente — no hay FAIL ni WARN bloqueante en este informe.</p>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Documentar formalmente en el runbook de observabilidad DR que node-exporter va embebido en Grafana Alloy
+(puerto 17935), consistente con el mismo hallazgo en Principal, para que el script deje de reportar este WARN
+o lo ajuste a INFO.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Evaluar migración a la versión de JDK homologada (25) cuando el roadmap del proyecto lo permita — sin
+impacto actual, mismo criterio que Principal.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El clúster Kafka DR está operativo con capacidad completa (3/3 brokers), sin ninguna falla (FAIL) y con
+recursos equivalentes a Principal, consistente con la decisión de diseño de no degradar Kafka en contingencia.
+Las 3 advertencias registradas corresponden todas al mismo hallazgo de node-exporter, reclasificado como
+decisión de arquitectura deliberada mediante evidencia directa tomada del mismo nodo.</p>
+
+<p>No se identificaron hallazgos bloqueantes ni contradicciones entre módulos del log. El clúster DR está en
+condiciones de asumir tráfico real de contingencia sin degradación respecto a Principal.</p>
+
+<p><b>El clúster Kafka DR se considera apto y operativo para contingencia, sin acciones obligatorias
+pendientes.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 24 de julio de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Kafka DR - Página 1</div>
+
+</body></html>

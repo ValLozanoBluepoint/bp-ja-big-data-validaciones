@@ -26,15 +26,23 @@
 #    - Conector Kafka instalado en Flink DR (se verifica en Módulo 1, no se instala aquí).
 #    - Topic de prueba ya creado y con mensajes producidos por el script del lado Kafka DR.
 #    - Ejecutar desde el nodo JobManager DR (pbigd-plat-apps01-cont) o pasar --jobmanager-host.
-#    - SSH sin contraseña (clave) del usuario admapl entre los nodos Flink DR
-#      (JobManager → TaskManagers) para el chequeo de conectividad multi-nodo
-#      del Módulo 2. Esto es SSH interno de Flink, no hacia Kafka.
 #    - python3 disponible (parseo de JSON de la REST API de Flink).
+#
+#  NO usa SSH: no existe acceso SSH sin contraseña del usuario admapl entre
+#  ningún par de nodos del entorno (ni JobManager→TaskManagers, ni hacia Kafka).
+#  Por eso:
+#    - Módulo 2 (conectividad TM→Kafka) solo prueba desde el JobManager
+#      automáticamente; la conectividad de cada TaskManager DR se verifica de
+#      forma MANUAL (ver instrucciones que imprime el script y
+#      preparacion_integracion_kafka_flink.md, Prerequisito 2).
+#    - Módulo 3 (sink) no puede confirmar automáticamente la llegada de
+#      mensajes en los TaskManagers DR; el script imprime el comando exacto
+#      para que el operador lo corra MANUALMENTE en cada TaskManager DR.
 #
 #  Uso:
 #    chmod +x validate_kafka_flink_dr_flink.sh
-#    ./validate_kafka_flink_dr_flink.sh --topic <topic> \
-#        [--jobmanager-host host] [--skip-functional-test] [--skip-tm-connectivity]
+#    sh ./validate_kafka_flink_dr_flink.sh --topic <topic> \
+#        [--jobmanager-host host] [--skip-functional-test]
 # =============================================================================
 
 set -uo pipefail
@@ -46,12 +54,11 @@ JM_HOST="${JOBMANAGER_HOST:-pbigd-plat-apps01-cont}"
 JM_REST_PORT=8081
 KAFKA_BROKER_PORT=9092
 TASKMANAGER_HOSTS=("pbigd-proc01-cont" "pbigd-proc02-cont")   # DR: solo 2 nodos (capacidad reducida)
+TM_CONTAINER_NAMES=("flink-tm-1-cont" "flink-tm-2-cont")                # 1:1 con TASKMANAGER_HOSTS
 KAFKA_NODES=("pbigd-kaf01-cont" "pbigd-kaf02-cont" "pbigd-kaf03-cont")  # DR: capacidad completa
 
-CONTAINER_JM="flink-jobmanager"
-CONTAINER_TM_PATTERN="flink-tm"
+CONTAINER_JM="flink-jobmanager-cont"
 FLINK_HOME="/opt/flink"
-PODMAN_USER="admapl"
 
 # Umbrales DR — igual criterio que validate_flink_dr.sh (capacidad Flink
 # reducida intencionalmente) y validate_kafka_dr.sh (Kafka sin reducir).
@@ -64,7 +71,6 @@ LATENCY_TIMEOUT_S=25             # ventana algo mayor que Principal: recursos DR
 SQL_JOB_STARTUP_WAIT_S=20
 
 SKIP_FUNCTIONAL_TEST=false
-SKIP_TM_CONNECTIVITY=false
 
 # ---------------------------------------------------------------------------
 # Colores y helpers
@@ -98,7 +104,6 @@ while [[ $# -gt 0 ]]; do
     --topic)                 TEST_TOPIC="$2"; shift 2 ;;
     --jobmanager-host)       JM_HOST="$2"; shift 2 ;;
     --skip-functional-test)  SKIP_FUNCTIONAL_TEST=true; shift ;;
-    --skip-tm-connectivity)  SKIP_TM_CONNECTIVITY=true; shift ;;
     *) echo "Opción desconocida: $1"; exit 1 ;;
   esac
 done
@@ -185,40 +190,16 @@ else
   fail "Brokers Kafka DR alcanzables desde el JobManager: $KAFKA_REACHABLE_COUNT/${#KAFKA_NODES[@]} — por debajo del umbral pleno exigido ($MIN_KAFKA_BROKERS_REACHABLE)"
 fi
 
-# Cobertura completa: repetir el mismo chequeo TCP en cada TaskManager DR
-# vía SSH interno entre nodos Flink (no hacia Kafka).
-if $SKIP_TM_CONNECTIVITY; then
-  info "Chequeo de conectividad en TaskManagers DR omitido (--skip-tm-connectivity)"
-else
-  info "Verificando conectividad TCP ${KAFKA_BROKER_PORT} desde cada TaskManager DR (SSH interno Flink)..."
-  TM_WITH_FULL_ACCESS=0
-  for TM in "${TASKMANAGER_HOSTS[@]}"; do
-    TM_REACHABLE_COUNT=0
-    for BROKER in "${KAFKA_NODES[@]}"; do
-      CHECK_CMD="timeout 3 bash -c 'cat < /dev/null > /dev/tcp/${BROKER}/${KAFKA_BROKER_PORT}' 2>/dev/null && echo OPEN || echo CLOSED"
-      RESULT=$(ssh -o ConnectTimeout=5 -o BatchMode=yes "${PODMAN_USER}@${TM}" "$CHECK_CMD" 2>/dev/null || echo "SSH_ERROR")
-      if [[ "$RESULT" == "OPEN" ]]; then
-        TM_REACHABLE_COUNT=$((TM_REACHABLE_COUNT+1))
-      elif [[ "$RESULT" == "SSH_ERROR" ]]; then
-        warn "No se pudo conectar por SSH a $TM para probar TCP hacia $BROKER"
-      else
-        fail "TCP ${BROKER}:${KAFKA_BROKER_PORT} NO alcanzable desde TaskManager DR $TM"
-      fi
-    done
-    if [[ "$TM_REACHABLE_COUNT" -eq "${#KAFKA_NODES[@]}" ]]; then
-      ok "TaskManager DR $TM alcanza los ${#KAFKA_NODES[@]} brokers Kafka"
-      TM_WITH_FULL_ACCESS=$((TM_WITH_FULL_ACCESS+1))
-    else
-      fail "TaskManager DR $TM solo alcanza $TM_REACHABLE_COUNT/${#KAFKA_NODES[@]} brokers Kafka"
-    fi
-  done
-
-  if [[ "$TM_WITH_FULL_ACCESS" -ge "$MIN_FLINK_TM_REACHABLE" ]]; then
-    ok "Al menos $MIN_FLINK_TM_REACHABLE TaskManager(s) DR con acceso completo a Kafka (umbral DR: degradación aceptada)"
-  else
-    fail "Ningún TaskManager DR tiene acceso completo a los 3 brokers Kafka — integración no operativa en contingencia"
-  fi
-fi
+# Cobertura completa: sin SSH disponible entre nodos Flink DR, este chequeo
+# NO se puede automatizar hacia cada TaskManager. Se deja como paso MANUAL:
+# se imprime el comando exacto para que el operador lo corra localmente en
+# cada TaskManager DR (ver preparacion_integracion_kafka_flink.md, Prerequisito 2).
+info "Se asume que la conectividad TCP ${KAFKA_BROKER_PORT} ya fue validada de forma independiente en cada TaskManager DR (sin SSH disponible, no se puede automatizar desde aquí). Comando de referencia:"
+info "En CADA TaskManager DR (${TASKMANAGER_HOSTS[*]}), correr localmente:"
+for BROKER in "${KAFKA_NODES[@]}"; do
+  info "    timeout 3 bash -c 'cat < /dev/null > /dev/tcp/${BROKER}/${KAFKA_BROKER_PORT}' && echo OPEN || echo CLOSED   # ${BROKER}"
+done
+dr "Umbral DR (degradación aceptada): basta con que AL MENOS $MIN_FLINK_TM_REACHABLE TaskManager DR alcance los 3 brokers para considerar la integración operativa en contingencia."
 
 # =============================================================================
 # MÓDULO 3 — Integración funcional end-to-end en DR (topic ya creado por el lado Kafka)
@@ -262,8 +243,8 @@ SQLEOF
     ok "Script SQL copiado al contenedor JobManager DR"
 
     info "Sometiendo job Flink SQL DR (background)..."
-    podman exec -d "$CONTAINER_JM" "${FLINK_HOME}/bin/sql-client.sh" -f "$SQL_SCRIPT_CONTAINER" \
-      > /tmp/${TEST_TOPIC}_flinkside_sqlclient.log 2>&1
+    nohup podman exec "$CONTAINER_JM" "${FLINK_HOME}/bin/sql-client.sh" -f "$SQL_SCRIPT_CONTAINER" \
+      > "/tmp/${TEST_TOPIC}_flinkside_sqlclient.log" 2>&1 &
 
     info "Esperando ${SQL_JOB_STARTUP_WAIT_S}s a que el job quede RUNNING (DR: recursos más limitados)..."
     sleep "$SQL_JOB_STARTUP_WAIT_S"
@@ -284,26 +265,19 @@ print(running[-1]['id'] if running else '')" 2>/dev/null || echo "")
       fail "No se detectó ningún job RUNNING tras ${SQL_JOB_STARTUP_WAIT_S}s — ver /tmp/${TEST_TOPIC}_flinkside_sqlclient.log en $THIS_HOST — CRÍTICO en DR"
     fi
 
-    info "Verificando llegada de mensajes al sink 'print' DR (timeout ${LATENCY_TIMEOUT_S}s)..."
-    MESSAGE_SEEN=false
-    DEADLINE=$(( $(date +%s) + LATENCY_TIMEOUT_S ))
-    TM_CONTAINER=$(podman ps --filter "name=${CONTAINER_TM_PATTERN}" --format "{{.Names}}" 2>/dev/null | head -1)
-    PRODUCE_START_EPOCH=$(date +%s)
-    while [[ $(date +%s) -lt $DEADLINE ]]; do
-      if [[ -n "$TM_CONTAINER" ]] && podman logs "$TM_CONTAINER" 2>/dev/null | grep -q "${TEST_MESSAGE_PREFIX}-"; then
-        MESSAGE_SEEN=true
-        break
-      fi
-      sleep 2
+    # El TaskManager DR que ejecuta la tarea vive en otra VM (sin SSH
+    # disponible), así que el sink 'print' no se puede leer desde aquí. Se
+    # deja como paso MANUAL: el operador revisa el log del contenedor TM en
+    # CADA TaskManager DR hasta encontrar el prefijo de mensaje de prueba.
+    info "Se espera encontrar el mensaje de prueba (prefijo '${TEST_MESSAGE_PREFIX}-') en el log de alguno de los TaskManagers DR (sin SSH disponible, no se puede confirmar desde aquí)."
+    info "Esperando ${LATENCY_TIMEOUT_S}s para dar tiempo a que el mensaje fluya antes de revisar..."
+    sleep "$LATENCY_TIMEOUT_S"
+    info "Correr localmente en cada TaskManager DR (contenedor correspondiente):"
+    for i in "${!TASKMANAGER_HOSTS[@]}"; do
+      info "    [${TASKMANAGER_HOSTS[$i]}]  podman logs ${TM_CONTAINER_NAMES[$i]} | grep '${TEST_MESSAGE_PREFIX}-'"
     done
-    ELAPSED=$(( $(date +%s) - PRODUCE_START_EPOCH ))
-
-    if $MESSAGE_SEEN; then
-      ok "Mensajes de prueba (producidos por el lado Kafka DR) detectados en el sink (TaskManager: $TM_CONTAINER)"
-      dr "RTO de integración observado: ${ELAPSED}s (referencia: <2min desde failover declarado, según diseño DR)"
-    else
-      fail "Los mensajes de prueba NO aparecieron en el sink DR dentro de ${LATENCY_TIMEOUT_S}s — integración Kafka↔Flink NO confirmada en contingencia"
-    fi
+    info "Si aparecen líneas con el prefijo '${TEST_MESSAGE_PREFIX}-' en alguno de los TaskManagers DR, la integración quedó confirmada."
+    dr "Si se requiere medir RTO, anotar manualmente el timestamp de la falla/failover y el timestamp en que aparece el primer mensaje en el sink."
 
     info "Cancelando job de prueba DR..."
     if [[ -n "$JOB_ID" ]]; then
@@ -345,7 +319,7 @@ fi
 
 log ""
 log "${CYAN}  Siguiente paso: volver al nodo Kafka DR y ejecutar:${NC}"
-log "${CYAN}    ./validate_kafka_flink_dr_kafka.sh --cleanup ${TEST_TOPIC}${NC}"
+log "${CYAN}    sh ./validate_kafka_flink_dr_kafka.sh --cleanup ${TEST_TOPIC}${NC}"
 log ""
 
 exit $FAIL

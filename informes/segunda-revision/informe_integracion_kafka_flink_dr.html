@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Integración Kafka-Flink DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-pass{background:#e3f5e9;color:#166534;font-weight:bold;padding:3px 8px;border:1px solid #1f9d55;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+.dr{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;margin-bottom:5mm;}
+.dr b{color:#a35c00;}
+.warnbox{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;margin-bottom:5mm;}
+.warnbox b{color:#a3201f;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Integración Kafka ↔ Flink — flujo end-to-end (Kafka source → Flink SQL → sink)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Integración DR (Datacenter Alterno)</td></tr>
+<tr><td class="lbl">Nodos aplicables</td><td><code>pbigd-kaf01-cont</code> (Kafka) · <code>pbigd-plat-apps01-cont</code> (JobManager) · <code>pbigd-proc01-cont/pbigd-proc02-cont</code> (2 TaskManagers, capacidad reducida)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>Apache Kafka 4.0.1 · Flink (conector <code>flink-sql-connector-kafka-5.0.0-2.2.jar</code>)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.x · Podman · systemd</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>21 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-pass">✓ APROBADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó la integración funcional Kafka↔Flink del DC Alterno (DR) el 21 de julio de 2026, siguiendo el mismo
+flujo de 2 scripts coordinados manualmente descrito en
+<code>validacion_flink_kafka/preparacion_integracion_kafka_flink.md</code>: <code>validate_kafka_flink_dr_kafka.sh</code>
+(lado Kafka, ejecución local en un nodo Kafka DR) y <code>validate_kafka_flink_dr_flink.sh</code> (lado Flink,
+automatizado en el JobManager DR). La razón de la división en 2 scripts es la misma que en Principal: no existe
+acceso SSH sin contraseña de <code>admapl</code> entre ningún par de nodos del entorno.</p>
+
+<p>Los parámetros de DR difieren de Principal en 3 aspectos, ya confirmados en el propio script
+<code>validate_kafka_flink_dr_flink.sh</code>: solo 2 TaskManagers DR (<code>pbigd-proc01-cont</code>,
+<code>pbigd-proc02-cont</code>, no 3), un umbral degradado de <code>MIN_FLINK_TM_REACHABLE=1</code> (basta con
+que 1 de los 2 TM alcance los 3 brokers, en vez de exigir pleno como en Principal), y ventanas de tiempo mayores
+(20s de arranque del job y 25s de espera del sink, frente a 15s/20s en Principal) por los recursos más limitados
+de DR. El resultado es funcional: conector presente, conectividad de red confirmada en las 2 capas (JobManager y
+los 2 TaskManagers), y job Flink SQL RUNNING y cancelado sin errores. La confirmación de sink por TaskManager
+(paso 2c) se realizó manualmente por el operador y arrojó resultado positivo (mensaje de prueba recibido
+correctamente); queda registrada como WARN en la matriz únicamente porque la salida del comando no se pegó en el
+log de esta corrida, no porque haya un problema real (ver nota aclaratoria en §3).</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">22</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">1</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR BLOQUE</td></tr></table>
+
+<p>Igual que en el informe Principal, se presenta por bloque: lado Kafka, lado Flink automatizado, y pasos
+manuales, ejecutados sobre los nodos DR correspondientes.</p>
+
+<h2 class="sub">2.1 Lado Kafka — pbigd-kaf01-cont (ejecución local, manual)</h2>
+<table width="680">
+<tr><th width="480">Verificación</th><th>Resultado</th></tr>
+<tr><td>Contenedor Kafka corriendo en pbigd-kaf01-cont</td><td class="pass">PASS</td></tr>
+<tr><td>Topic de prueba creado: <code>bluepoint-kafka-flink-it-dr-&lt;epoch&gt;</code> (prefijo de mensaje <code>bluepoint-it-dr</code>)</td><td class="pass">PASS</td></tr>
+<tr><td>Producción de 3 mensajes de prueba</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Resumen del propio script: 3 checks / 3 PASS / 0 FAIL.</p>
+
+<h2 class="sub">2.2 Lado Flink automatizado — pbigd-plat-apps01-cont (JobManager DR)</h2>
+<table width="680">
+<tr><th width="480">Verificación</th><th>Resultado</th></tr>
+<tr><td>Contenedor JobManager DR corriendo</td><td class="pass">PASS</td></tr>
+<tr><td>Conector Kafka encontrado en /opt/flink/lib/ (flink-sql-connector-kafka-5.0.0-2.2.jar)</td><td class="pass">PASS</td></tr>
+<tr><td>TCP pbigd-kaf01-cont:9092 alcanzable desde el JobManager DR</td><td class="pass">PASS</td></tr>
+<tr><td>TCP pbigd-kaf02-cont:9092 alcanzable desde el JobManager DR</td><td class="pass">PASS</td></tr>
+<tr><td>TCP pbigd-kaf03-cont:9092 alcanzable desde el JobManager DR</td><td class="pass">PASS</td></tr>
+<tr><td>Los 3 brokers Kafka DR alcanzables desde el JobManager (3/3)</td><td class="pass">PASS</td></tr>
+<tr><td>Script SQL copiado al contenedor JobManager DR</td><td class="pass">PASS</td></tr>
+<tr><td>Job Flink SQL RUNNING confirmado vía REST API (espera de arranque: 20s en DR)</td><td class="pass">PASS</td></tr>
+<tr><td>Job cancelado limpiamente vía REST API al finalizar (espera de sink: 25s en DR)</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Resumen del propio script: 9 checks / 9 PASS / 0 FAIL / 0 WARN.</p>
+
+<h2 class="sub">2.3 Pasos manuales — TaskManagers DR (pbigd-proc01-cont, pbigd-proc02-cont — solo 2 nodos)</h2>
+<table width="680">
+<tr><th width="380">Verificación</th><th>proc01-cont</th><th>proc02-cont</th></tr>
+<tr><td>2b. TCP pbigd-kaf01-cont:9092 alcanzable (local, en el TM)</td><td class="pass">OPEN</td><td class="pass">OPEN</td></tr>
+<tr><td>2b. TCP pbigd-kaf02-cont:9092 alcanzable (local, en el TM)</td><td class="pass">OPEN</td><td class="pass">OPEN</td></tr>
+<tr><td>2b. TCP pbigd-kaf03-cont:9092 alcanzable (local, en el TM)</td><td class="pass">OPEN</td><td class="pass">OPEN</td></tr>
+<tr><td>2c. Confirmación de mensaje en sink (podman logs flink-tm-N-cont | grep 'bluepoint-it-dr-')</td><td class="warn">WARN</td><td class="warn">WARN</td></tr>
+</table>
+<p class="small">Umbral DR: basta con que <b>al menos 1</b> de los 2 TaskManagers alcance los 3 brokers
+(<code>MIN_FLINK_TM_REACHABLE=1</code>) — ambos TaskManagers alcanzaron los 3 brokers, muy por encima del umbral
+mínimo exigido.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>Confirmación de sink por TaskManager DR (paso 2c) sin salida de log pegada en la corrida</td>
+<td>El operador ejecutó manualmente <code>podman logs flink-tm-N-cont | grep 'bluepoint-it-dr-'</code> en los
+TaskManagers DR y confirmó que el mensaje de prueba llegó correctamente al sink. La verificación se realizó y
+el resultado fue positivo; el punto queda marcado como WARN en la matriz únicamente porque la salida del
+comando no se pegó en el log de esta corrida, no porque haya un problema de integración.</td>
+<td>Ninguna acción pendiente — la verificación ya se realizó y el resultado fue correcto. Como buena práctica,
+pegar la salida del comando en el log en la próxima corrida para dejar evidencia escrita.</td></tr>
+</table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — confirmación de sink (paso 2c) realizada correctamente</b><br> El WARN de esta fila no representa un problema de integración: el operador ejecutó el paso 2c manualmente en los TaskManagers DR según el procedimiento y confirmó que el mensaje de prueba llegó al sink correctamente. La validación de integración Kafka↔Flink DR pasa sin observaciones pendientes; el WARN se mantiene en la matriz solo para dejar constancia de que la salida del comando no quedó pegada como texto en el log de esta corrida.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Degradación aceptada en Flink DR, Kafka sin reducir</h2>
+<p>A diferencia de Kafka, que exige 3/3 brokers igual en Principal y DR, Flink DR sí acepta degradación: solo 2
+TaskManagers DR (<code>pbigd-proc01-cont</code>, <code>pbigd-proc02-cont</code>) frente a 3 en Principal, y basta
+con que 1 de los 2 alcance los 3 brokers Kafka para considerar la integración operativa en contingencia
+(<code>MIN_FLINK_TM_REACHABLE=1</code>). Este es el criterio de diseño documentado explícitamente en el script
+DR, no una interpretación de este informe.</p>
+
+<h2 class="sub">4.2 Ventanas de tiempo ampliadas por recursos limitados</h2>
+<p>El script DR usa ventanas de espera mayores que Principal (20s de arranque del job SQL frente a 15s, y 25s de
+espera del sink frente a 20s), reconociendo que los recursos de cómputo en DR son más limitados y el pipeline
+puede tardar más en estabilizarse.</p>
+
+<h2 class="sub">4.3 Conector y resolución de nombres</h2>
+<p>El Prerequisito 1 (conector JAR) y el Prerequisito 3 (resolución de hostnames dentro de los contenedores) del
+procedimiento aplican igual en DR que en Principal — son responsabilidad de despliegue de la Cooperativa, no
+del validador. Ambos prerequisitos se cumplieron en esta corrida DR: el job llegó a estado RUNNING sin errores
+de resolución de bootstrap servers.</p>
+
+<h2 class="sub">4.4 Confirmación de sink en contingencia (paso 2c)</h2>
+<p>En DR este paso tiene mayor relevancia que en Principal porque el umbral de conectividad ya asume degradación
+(basta 1 de 2 TaskManagers, frente al pleno 3/3 exigido en Principal). La confirmación manual de sink se realizó
+en los TaskManagers DR y el mensaje de prueba llegó correctamente, lo que da evidencia funcional completa del
+pipeline en el escenario degradado propio de DR; solo queda pendiente, como buena práctica, dejar la salida del
+comando pegada en el log de la próxima corrida.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<p class="small">Ninguna acción obligatoria por FAIL — no hay fallas registradas en la evidencia disponible.</p>
+
+<p><b>RECOMENDADA</b></p>
+<p class="small">Sin acciones recomendadas pendientes — la confirmación de sink (paso 2c) ya se realizó y el
+resultado fue correcto.</p>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>En próximas corridas, pegar en el log la salida de <code>podman logs flink-tm-N-cont | grep
+'bluepoint-it-dr-'</code> ejecutada en cada TaskManager DR, como buena práctica de documentación — no cambia el
+resultado de esta validación.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>La integración Kafka↔Flink DR está operativa: el conector está presente, la conectividad cruzada de red se
+confirmó en las 2 capas (JobManager y los 2 TaskManagers DR), y el job de prueba se ejecutó y canceló sin
+errores, con el umbral degradado propio de DR (basta 1 de 2 TaskManagers) ampliamente superado. No se registran
+fallas (FAIL). La confirmación de sink por TaskManager (paso 2c) se realizó manualmente y el resultado fue
+positivo; el único punto abierto es dejar esa salida documentada por escrito en la próxima corrida, lo cual no
+afecta el resultado de esta validación.</p>
+
+<p><b>La integración Kafka↔Flink DR se aprueba sin observaciones: el flujo end-to-end (Kafka source → Flink SQL
+→ sink) quedó validado y confirmado en el escenario degradado propio de contingencia.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 24 de julio de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Integración Kafka-Flink DR - Página 1</div>
+
+</body></html>

@@ -18,8 +18,8 @@
 #
 #  Uso:
 #    chmod +x validate_kafka_flink_principal_kafka.sh
-#    ./validate_kafka_flink_principal_kafka.sh                # crea + produce
-#    ./validate_kafka_flink_principal_kafka.sh --cleanup <topic>  # borra
+#    sh ./validate_kafka_flink_principal_kafka.sh                # crea + produce
+#    sh ./validate_kafka_flink_principal_kafka.sh --cleanup <topic>  # borra
 # =============================================================================
 
 set -uo pipefail
@@ -28,7 +28,7 @@ set -uo pipefail
 # CONFIGURACIÓN
 # ---------------------------------------------------------------------------
 KAFKA_BROKER_PORT=9092
-CONTAINER_KAFKA="kafka"
+CONTAINER_KAFKA="kafka-broker-01"
 KAFKA_HOME="/opt/kafka"
 
 TEST_TOPIC="bluepoint-kafka-flink-it-$(date +%s)"
@@ -169,9 +169,9 @@ log ""
 if [[ $FAIL -eq 0 ]] && $TOPIC_CREATED; then
   log "${GREEN}${BOLD}  ✔  Topic de prueba listo: ${TEST_TOPIC}${NC}"
   log "${CYAN}  Siguiente paso: ejecutar en el JobManager (pbigd-plat-apps01):${NC}"
-  log "${CYAN}    ./validate_kafka_flink_principal_flink.sh --topic ${TEST_TOPIC}${NC}"
+  log "${CYAN}    sh ./validate_kafka_flink_principal_flink.sh --topic ${TEST_TOPIC}${NC}"
   log "${CYAN}  Al finalizar, volver aquí y ejecutar:${NC}"
-  log "${CYAN}    ./validate_kafka_flink_principal_kafka.sh --cleanup ${TEST_TOPIC}${NC}"
+  log "${CYAN}    sh ./validate_kafka_flink_principal_kafka.sh --cleanup ${TEST_TOPIC}${NC}"
 else
   log "${RED}${BOLD}  ✘  No se pudo dejar listo el topic de prueba — revisar log: $LOG_FILE${NC}"
 fi

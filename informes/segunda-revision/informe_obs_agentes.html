@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Agentes de Observabilidad</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-pass{background:#e3f5e9;color:#166534;font-weight:bold;padding:3px 8px;border:1px solid #1f9d55;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Agentes de Observabilidad — Grafana Alloy + node-exporter embebido (validación universal, todos los nodos)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Toda la plataforma Big Data (Principal + DR) — script idéntico en todos los nodos</td></tr>
+<tr><td class="lbl">Nodo de referencia (log analizado)</td><td><code>pbigd-kaf01-cont</code> (DR) — representativo; mismo script y mismos módulos en todos los nodos de la plataforma</td></tr>
+<tr><td class="lbl">Nodos cubiertos por este control</td><td>15 nodos DC Principal (<code>pbigd-kaf01-03, stg01-03, dlh01-03, proc01-03, plat-apps01, bd-plat-apps01, plat-obs01</code>) + 14 nodos DR equivalentes <code>-cont</code></td></tr>
+<tr><td class="lbl">Versión del software</td><td>Grafana Alloy 1.17.0 detectado (recomendada 1.6.0, no bloqueante) · node-exporter embebido (sin binario standalone)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.x · Podman 5.8.2 · systemd</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>16 de julio de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-pass">✓ APROBADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó el despliegue universal de agentes de observabilidad (Alloy 1.6.0 + node-exporter) de la
+Cooperativa Jardín Azuayo el 16 de julio de 2026, mediante el script <code>validate_obs_agents.sh</code>, un
+control <b>mandatorio en todos los nodos de la plataforma</b> (Principal y DR), ya que Alloy + node-exporter
+son los componentes mínimos indispensables de observabilidad en cada nodo. Este informe se basa en la corrida
+capturada en <code>pbigd-kaf01-cont</code> como evidencia representativa: el script y sus 7 módulos son
+idénticos en el resto de nodos — solo cambian el hostname y los valores puntuales de PID/uptime — por lo que no
+se genera un informe independiente por nodo.</p>
+
+<p>Los componentes mínimos indispensables (Alloy activo, node-exporter embebido, remote_write hacia Prometheus
+central) están operativos en el nodo evaluado. No se registran fallas (FAIL). Las 7 advertencias registradas
+corresponden en su totalidad a: (a) restricciones de permisos correctas y esperadas entre el usuario operador
+<code>admapl</code> y el usuario de servicio <code>alloy</code> (no son hallazgos de configuración), y (b) la
+no disponibilidad de componentes opcionales del stack (Loki, OTLP/Tempo) en el nodo escila central, ya
+documentada como no bloqueante en el propio plan de implementación.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">21</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">7</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR MÓDULO</td></tr></table>
+
+<p>El log analizado corresponde a un único nodo representativo. La matriz se presenta por módulo; aplica de
+forma idéntica al resto de nodos de la plataforma según lo indicado en la cabecera del propio script
+("mandatorio en TODOS los nodos").</p>
+
+<table width="680">
+<tr><th width="480">Verificación</th><th>pbigd-kaf01-cont (representativo)</th></tr>
+<tr><td>Rocky Linux 10.x confirmado</td><td class="pass">PASS</td></tr>
+<tr><td>Podman disponible (v5.8.2)</td><td class="pass">PASS</td></tr>
+<tr><td>NTP sincronizado (timedatectl)</td><td class="pass">PASS</td></tr>
+<tr><td>Hostname resoluble (FQDN)</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter embebido en Alloy activo (puerto 17935)</td><td class="pass">PASS</td></tr>
+<tr><td>API de componentes de Alloy responde</td><td class="pass">PASS</td></tr>
+<tr><td>Componente prometheus.exporter.unix: healthy</td><td class="pass">PASS</td></tr>
+<tr><td>Componente prometheus.remote_write: healthy</td><td class="pass">PASS</td></tr>
+<tr><td>Binario Alloy encontrado (/usr/bin/alloy)</td><td class="pass">PASS</td></tr>
+<tr><td>Versión Alloy detectada (1.17.0) vs recomendada (1.6.0)</td><td class="na">INFO — no bloqueante</td></tr>
+<tr><td>Proceso Alloy en ejecución (PID, uptime)</td><td class="pass">PASS</td></tr>
+<tr><td>Puerto 17935 escuchando (Alloy HTTP/UI)</td><td class="pass">PASS</td></tr>
+<tr><td>Alloy health check HTTP 200 / endpoint /metrics responde</td><td class="pass">PASS</td></tr>
+<tr><td>Archivo de configuración de Alloy accesible como admapl</td><td class="warn">WARN</td></tr>
+<tr><td>Servicio systemd 'alloy' activo y habilitado en boot</td><td class="pass">PASS</td></tr>
+<tr><td>Directorio /etc/alloy existe</td><td class="pass">PASS</td></tr>
+<tr><td>Permisos de escritura en /etc/alloy como admapl</td><td class="warn">WARN</td></tr>
+<tr><td>Directorio /var/lib/alloy/data encontrado como admapl</td><td class="warn">WARN</td></tr>
+<tr><td>Logs de Alloy disponibles vía journald</td><td class="pass">PASS</td></tr>
+<tr><td>WAL de Alloy encontrado en /var/lib/alloy/data como admapl</td><td class="warn">WARN</td></tr>
+<tr><td>DNS resuelve escila.jardinazuayo.fin.ec</td><td class="pass">PASS</td></tr>
+<tr><td>Prometheus alcanzable en escila:9090</td><td class="pass">PASS</td></tr>
+<tr><td>Loki alcanzable en escila:3100</td><td class="warn">WARN (opcional)</td></tr>
+<tr><td>OTLP gRPC alcanzable en escila:4317</td><td class="warn">WARN (opcional)</td></tr>
+<tr><td>Remote write activo — métricas enviándose a Prometheus</td><td class="pass">PASS</td></tr>
+<tr><td>Actividad de escritura a Loki detectada</td><td class="warn">WARN (opcional, consecuencia de Loki no disponible)</td></tr>
+<tr><td>Alloy configurado con exporter.unix embebido y healthy</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Total según resumen del propio script (nodo de referencia): 28 checks / 21 PASS / 0 FAIL / 7
+WARN.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>Archivo de configuración de Alloy no accesible como admapl</td>
+<td>Módulo 3: <code>No se pudo confirmar el archivo de configuración de Alloy (/etc/alloy/config.alloy no
+accesible ni por stat ni por listado) como admapl</code>. Ver nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción correctiva; si se requiere auditar el contenido del archivo, hacerlo con <code>sudo</code>
+o como el usuario de servicio <code>alloy</code>, no como <code>admapl</code>.</td></tr>
+<tr><td class="warn">WARN</td><td>Sin permisos de escritura en /etc/alloy como admapl</td>
+<td>Módulo 4: <code>Sin permisos de escritura como admapl (esperado: /etc/alloy pertenece al usuario de
+servicio 'alloy', no a admapl)</code>. Ver nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción correctiva — es aislamiento de permisos correcto entre usuarios.</td></tr>
+<tr><td class="warn">WARN</td><td>Directorio /var/lib/alloy/data no encontrado como admapl</td>
+<td>Módulo 4: <code>Directorio no encontrado: /var/lib/alloy/data (puede estar en ruta alternativa)</code>. Ver
+nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción correctiva; si se requiere confirmar existencia real, verificar con <code>sudo</code> o como
+usuario <code>alloy</code>.</td></tr>
+<tr><td class="warn">WARN</td><td>WAL de Alloy no encontrado en /var/lib/alloy/data como admapl</td>
+<td>Módulo 4: <code>WAL de Alloy no encontrado ... como admapl — esperado, ya que /var/lib/alloy/data
+pertenece al usuario de servicio 'alloy'</code>. Ver nota aclaratoria inmediatamente debajo.</td>
+<td>Ninguna acción correctiva; no es evidencia de que el WAL no exista.</td></tr>
+<tr><td class="warn">WARN</td><td>Loki no responde en escila.jardinazuayo.fin.ec:3100</td>
+<td>Módulo 5: DNS resuelve, pero Loki no responde (HTTP 000000) — componente opcional, no bloqueante según el
+plan de implementación.</td>
+<td>Si se requiere centralización de logs, revisar el servicio Loki o reglas de firewall hacia el puerto 3100
+(ver también informe de Observabilidad Principal, donde Loki tampoco está desplegado).</td></tr>
+<tr><td class="warn">WARN</td><td>OTLP gRPC (4317) no responde en escila.jardinazuayo.fin.ec</td>
+<td>Módulo 5: DNS resuelve, pero OTLP/Tempo no responde — componente opcional, no bloqueante.</td>
+<td>Si se requieren trazas distribuidas, revisar el servicio o firewall del puerto 4317.</td></tr>
+<tr><td class="warn">WARN</td><td>Sin actividad de escritura a Loki</td>
+<td>Módulo 6: consecuencia directa de que Loki no está desplegado (mismo hallazgo que las 2 filas anteriores),
+no un problema adicional independiente.</td>
+<td>Se resuelve junto con el despliegue de Loki, si se decide habilitarlo.</td></tr>
+</table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — directorios y archivos de configuración de Alloy no accesibles como admapl</b><br> Las 4 advertencias sobre <code>/etc/alloy/config.alloy</code>, permisos de escritura en <code>/etc/alloy</code>, el directorio <code>/var/lib/alloy/data</code> y su WAL <b>no son hallazgos de configuración de admapl</b>: el dueño del proceso y de esos directorios es el usuario de servicio <code>alloy</code>, no <code>admapl</code> (el usuario operador que ejecuta el script de validación). Esta separación de usuarios es el comportamiento correcto y esperado en un despliegue rootless — <code>admapl</code> no debería tener acceso de escritura ni lectura directa a los artefactos internos del servicio Alloy. Ninguna de estas 4 advertencias implica que el archivo de configuración, el directorio de datos o el WAL no existan o estén mal configurados; solo confirma que el aislamiento de permisos entre usuarios de servicio está funcionando como se espera. Se reclasifican como decisión de arquitectura/seguridad correcta, sin borrar los WARN crudos de la matriz.</td></tr></table>
+
+<table width="680"><tr><td class="notecell"><b>Nota aclaratoria — node-exporter embebido, no standalone</b><br> Este mismo log es la evidencia base que sustenta la reclasificación del WARN de node-exporter en los informes de Kafka Principal, Kafka DR y Observabilidad Principal/DR: node-exporter no corre como binario independiente en el puerto 9100 porque va embebido dentro de Grafana Alloy, expuesto en el puerto 17935 (<code>prometheus.exporter.unix: healthy</code>). Es una decisión de arquitectura deliberada de Bluepoint para esta plataforma, aplicable a todos los nodos.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Alcance universal de este control</h2>
+<p>A diferencia de los demás informes de este proyecto, este control no valida un clúster con roles
+diferenciados, sino un agente idéntico desplegado en <b>29 nodos</b> de la plataforma (15 en Principal + 14 en
+DR, según el inventario confirmado en los Módulos 8 y 3 de los informes de Observabilidad Principal y DR
+respectivamente). El log analizado en <code>pbigd-kaf01-cont</code> es representativo del comportamiento
+esperado en el resto — mismo script, mismos 7 módulos, mismos umbrales — por lo que este informe único cubre el
+control en toda la plataforma en lugar de generar 29 informes idénticos.</p>
+
+<h2 class="sub">4.2 Componentes mínimos indispensables</h2>
+<p>Alloy está activo, con su API de componentes respondiendo y los 2 componentes críticos —
+<code>prometheus.exporter.unix</code> (recolección local) y <code>prometheus.remote_write</code> (envío al
+Prometheus central) — reportando <code>healthy</code>. Esto confirma que el nodo está efectivamente enviando
+métricas al stack central, no solo que el proceso está corriendo.</p>
+
+<h2 class="sub">4.3 Aislamiento de permisos entre admapl y el usuario de servicio alloy</h2>
+<p>Las 4 advertencias de permisos (§3) reflejan un diseño de seguridad correcto: el operador (<code>admapl</code>)
+no tiene por qué tener acceso a los artefactos internos del servicio Alloy. Confundir esto con un hallazgo de
+infraestructura llevaría a una remediación equivocada (dar permisos indebidos a <code>admapl</code>), por lo
+que se documenta explícitamente como comportamiento esperado.</p>
+
+<h2 class="sub">4.4 Componentes opcionales del stack central</h2>
+<p>Loki y OTLP/Tempo no responden desde este nodo hacia <code>escila.jardinazuayo.fin.ec</code>, consistente
+con que ambos componentes no están desplegados en el nodo de observabilidad Principal (ver informe
+correspondiente). No es un problema de red o firewall específico de este nodo, sino la ausencia general de esos
+2 componentes opcionales en el stack central.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<p class="small">Ninguna acción obligatoria pendiente — no hay FAIL ni WARN bloqueante en este informe.</p>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Documentar en el runbook de observabilidad que <code>/etc/alloy</code> y <code>/var/lib/alloy/data</code>
+pertenecen al usuario de servicio <code>alloy</code> y no a <code>admapl</code>, para evitar que futuras
+validaciones o auditorías malinterpreten estos WARN como fallas de permisos.</li>
+<li>Evaluar actualizar Alloy de 1.17.0 a la versión recomendada 1.6.0 (o revisar si la recomendación interna
+debe actualizarse, dado que 1.17.0 es una versión posterior) — no bloqueante.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Si se despliega Loki (ver acción recomendada en el informe de Observabilidad Principal), confirmar que la
+actividad de escritura a Loki desde los agentes se restablece automáticamente.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El despliegue universal de agentes de observabilidad (Alloy + node-exporter embebido) está operativo en el
+nodo evaluado, con los componentes mínimos indispensables funcionando correctamente y enviando métricas al
+Prometheus central. No se registran fallas (FAIL). Las 7 advertencias se explican en su totalidad por (a)
+aislamiento de permisos correcto entre <code>admapl</code> y el usuario de servicio <code>alloy</code>, y (b)
+la ausencia de componentes opcionales (Loki, OTLP/Tempo) ya conocida y no bloqueante.</p>
+
+<p>Dado que el script es idéntico en los 29 nodos de la plataforma y este comportamiento es consistente con lo
+observado en los informes de Observabilidad Principal y DR (mismo hallazgo de node-exporter embebido), se
+considera representativo del estado general de los agentes en toda la plataforma.</p>
+
+<p><b>El despliegue de agentes de observabilidad se considera apto para producción en toda la plataforma, sin
+acciones obligatorias pendientes.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 24 de julio de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Agentes de Observabilidad - Página 1</div>
+
+</body></html>
