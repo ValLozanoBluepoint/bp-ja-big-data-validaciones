@@ -1,0 +1,69 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Flink → MinIO — PRINCIPAL              ║
+║   Fecha : 2026-08-13 14:57:50                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución : pbigd-plat-apps01
+  [INFO] JobManager Flink  : pbigd-plat-apps01 (http://pbigd-plat-apps01:8081)
+  [INFO] TaskManagers      : pbigd-proc01 pbigd-proc02 pbigd-proc03
+  [INFO] Endpoint MinIO    : http://172.17.210.62:9000
+  [INFO] Bucket checkpoints: flink-checkpoints
+  [INFO] VIP/DNS esperado  : 172.17.210.62
+
+  Nota de alcance: este script asume que validate_flink_principal.sh y
+  validate_minio_principal.sh ya se ejecutaron. Aquí solo se valida la
+  integración funcional Flink → MinIO (checkpoints reales).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Prerequisitos (bucket, plugin S3, config) — JobManager
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  MinIO alcanzable desde pbigd-plat-apps01: HTTP 200
+  [OK]  Bucket 'flink-checkpoints' responde en MinIO (HTTP 403)
+  [OK]  Contenedor JobManager local corriendo: Up 16 hours
+Up 16 hours
+  [INFO] Archivo de configuración detectado: config.yaml (formato Flink 2.x)
+  [OK]  Plugin S3 encontrado en JobManager: /opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-2.2.1.jar
+  [OK]  Configuración de checkpoints/S3 encontrada en config.yaml
+  [INFO] s3.endpoint: http://itaca:9000
+state.checkpoints.dir: s3://flink-checkpoints/checkpoints
+state.savepoints.dir: s3://flink-checkpoints/savepoints
+  [INFO] Intervalo de checkpoint configurado: 60000 ms
+  [OK]  s3.endpoint de Flink (http://itaca:9000) resuelve a la misma IP (172.17.210.62) que el VIP/DNS esperado (172.17.210.62) — el nombre difiere (nombre corto vs FQDN) pero apunta al mismo destino
+  [OK]  path-style access habilitado explícitamente (s3.path.style.access: true)
+  [OK]  Credenciales S3 configuradas en config.yaml (s3.access-key/s3.secret-key presentes; valores no inspeccionados)
+  [WARN] config.yaml tiene permisos 755 (legible por 'otros') y contiene credenciales en texto plano — considerar restringir permisos o migrar a Podman secrets
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Plugin S3 y configuración — TaskManagers (manual)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  TaskManagers confirmados manualmente por el operador: 3/3 con plugin S3 + config OK
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Integración funcional Flink → MinIO (checkpoint real)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Generando job Flink SQL (fuente datagen → sink print, checkpointing habilitado)...
+  [OK]  Script SQL copiado al contenedor JobManager
+  [INFO] Sometiendo job Flink SQL (background)...
+  [INFO] Esperando 15s a que el job quede RUNNING...
+  [OK]  Job Flink SQL RUNNING confirmado vía REST API (job id: 0d865a10b18ce4e0c6c0cd14b6cc7a8b)
+  [INFO] Esperando checkpoint COMPLETED (hasta 90s, polling cada 5s)...
+  [OK]  Checkpoint COMPLETED confirmado vía REST API — external_path: s3://flink-checkpoints/checkpoints/0d865a10b18ce4e0c6c0cd14b6cc7a8b/chk-1
+  [OK]  Integración Flink → MinIO confirmada: el checkpoint quedó persistido en el bucket 'flink-checkpoints'
+  [INFO] Cancelando job de prueba...
+  [OK]  Job 0d865a10b18ce4e0c6c0cd14b6cc7a8b cancelado vía REST API
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Integración Flink → MinIO · PRINCIPAL                ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 15                                                 ║
+║   PASS          : 14                                                 ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 1                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_flink_minio_principal_20260813_145750.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Integración Flink → MinIO validada SIN fallos críticos

@@ -1,0 +1,73 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Flink → MinIO — DR                     ║
+║   Fecha : 2026-08-13 15:44:09                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [DR]  NOTA: Flink DR opera con capacidad reducida (2 TaskManagers). El bucket
+  [DR]  flink-checkpoints en MinIO DR mantiene la misma exigencia funcional que Principal.
+
+  [INFO] Nodo de ejecución : pbigd-plat-apps01-cont
+  [INFO] JobManager DR     : pbigd-plat-apps01-cont (http://pbigd-plat-apps01-cont:8081)
+  [INFO] TaskManagers DR   : pbigd-proc01-cont pbigd-proc02-cont
+  [INFO] Endpoint MinIO DR : http://itaca:9000
+  [INFO] Bucket checkpoints: flink-checkpoints
+  [INFO] VIP/DNS pasado    : itaca (comparado contra s3.endpoint en Módulo 1.5)
+
+  Nota de alcance: este script asume que validate_flink_dr.sh y
+  validate_minio_dr.sh ya se ejecutaron. Aquí solo se valida la
+  integración funcional Flink → MinIO DR (checkpoints reales).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Prerequisitos (bucket, plugin S3, config) — JobManager DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  MinIO DR alcanzable desde pbigd-plat-apps01-cont: HTTP 200
+  [OK]  Bucket 'flink-checkpoints' responde en MinIO DR (HTTP 403)
+  [OK]  Contenedor JobManager DR local corriendo: Up 29 hours
+Up 29 hours
+  [INFO] Archivo de configuración detectado: config.yaml (formato Flink 2.x)
+  [OK]  Plugin S3 encontrado en JobManager DR: /opt/flink/plugins/s3-fs-hadoop/flink-s3-fs-hadoop-2.2.1.jar
+  [OK]  Configuración de checkpoints/S3 encontrada en config.yaml DR
+  [INFO] s3.endpoint: http://itaca:9000
+state.checkpoints.dir: s3://flink-checkpoints/checkpoints
+state.savepoints.dir: s3://flink-checkpoints/savepoints
+  [INFO] Intervalo de checkpoint configurado en DR: 60000 ms
+  [DR]  Un intervalo ≤60s reduce la pérdida de datos en caso de failover DR
+  [OK]  s3.endpoint de Flink DR (http://itaca:9000) coincide con el VIP/DNS pasado (itaca)
+  [OK]  path-style access habilitado explícitamente en DR (s3.path.style.access: true)
+  [OK]  Credenciales S3 configuradas en config.yaml DR (s3.access-key/s3.secret-key presentes; valores no inspeccionados)
+  [WARN] config.yaml DR tiene permisos 777 (legible por 'otros') y contiene credenciales en texto plano — considerar restringir permisos o migrar a Podman secrets
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Plugin S3 y configuración — TaskManagers DR (manual)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  TaskManagers DR confirmados manualmente por el operador: 2/2 con plugin S3 + config OK (umbral DR: ≥1)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Integración funcional Flink DR → MinIO DR (checkpoint real)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Generando job Flink SQL DR (fuente datagen → sink print, checkpointing habilitado)...
+  [OK]  Script SQL copiado al contenedor JobManager DR
+  [INFO] Sometiendo job Flink SQL DR (background)...
+  [INFO] Esperando 20s a que el job quede RUNNING (DR: recursos más limitados)...
+  [OK]  Job Flink SQL DR RUNNING confirmado vía REST API (job id: eeb1b77ba92381b9fa6f3000a539ab35)
+  [INFO] Esperando checkpoint COMPLETED (hasta 120s, polling cada 5s)...
+  [OK]  Checkpoint COMPLETED confirmado vía REST API — external_path: s3://flink-checkpoints/checkpoints/eeb1b77ba92381b9fa6f3000a539ab35/chk-1
+  [OK]  Integración Flink → MinIO DR confirmada: el checkpoint quedó persistido en el bucket 'flink-checkpoints'
+  [INFO] Cancelando job de prueba DR...
+  [OK]  Job eeb1b77ba92381b9fa6f3000a539ab35 cancelado vía REST API
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Integración Flink → MinIO · DR                        ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01-cont                             ║
+║   Total checks  : 15                                                 ║
+║   PASS          : 14                                                 ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 1                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_flink_minio_dr_20260813_154409.log   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Integración Flink → MinIO DR validada SIN fallos críticos

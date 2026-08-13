@@ -1,0 +1,362 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1786467165.344589,
+    "ast_hash": "b6bf457e6a3f12e0ee4b8487448afc8a",
+    "semantic_hash": "b6bf457e6a3f12e0ee4b8487448afc8a"
+  },
+  ".claude/settings.local.json": {
+    "mtime": 1784926997.5552416,
+    "ast_hash": "8f0cdc3d579697b5e663717a61e6a963",
+    "semantic_hash": "8f0cdc3d579697b5e663717a61e6a963"
+  },
+  "validacion-node-exporter.sh": {
+    "mtime": 1783611943.8793404,
+    "ast_hash": "5b146d7c36a73ad0ee0d4a4b141fc762",
+    "semantic_hash": "5b146d7c36a73ad0ee0d4a4b141fc762"
+  },
+  "validacion_flink/validate_flink_dr.sh": {
+    "mtime": 1783719115.2015207,
+    "ast_hash": "9c48ceb77d126ace8ef68fc5bdc90080",
+    "semantic_hash": "9c48ceb77d126ace8ef68fc5bdc90080"
+  },
+  "validacion_flink/validate_flink_principal.sh": {
+    "mtime": 1783719374.0209253,
+    "ast_hash": "1b243388c2e4aa267985bf316da34e0f",
+    "semantic_hash": "1b243388c2e4aa267985bf316da34e0f"
+  },
+  "validacion_flink_kafka/validate_kafka_flink_dr_flink.sh": {
+    "mtime": 1784755380.7718723,
+    "ast_hash": "dae0860fb0347cba0289b1d056cfe8bc",
+    "semantic_hash": "dae0860fb0347cba0289b1d056cfe8bc"
+  },
+  "validacion_flink_kafka/validate_kafka_flink_dr_kafka.sh": {
+    "mtime": 1784755471.6101356,
+    "ast_hash": "0ed95a3abb04b1e2adb683c787768391",
+    "semantic_hash": "0ed95a3abb04b1e2adb683c787768391"
+  },
+  "validacion_flink_kafka/validate_kafka_flink_principal_flink.sh": {
+    "mtime": 1784670460.045058,
+    "ast_hash": "2877e254683919c2046bf582c1bf8a7f",
+    "semantic_hash": "2877e254683919c2046bf582c1bf8a7f"
+  },
+  "validacion_flink_kafka/validate_kafka_flink_principal_kafka.sh": {
+    "mtime": 1784755505.634136,
+    "ast_hash": "d0fab5385a2c2ef49f72865f169e8a6c",
+    "semantic_hash": "d0fab5385a2c2ef49f72865f169e8a6c"
+  },
+  "validacion_flink_minio/validate_flink_minio_dr.sh": {
+    "mtime": 1786476008.2743416,
+    "ast_hash": "e9c43151ac9259882857ed3435158abe",
+    "semantic_hash": "e9c43151ac9259882857ed3435158abe"
+  },
+  "validacion_flink_minio/validate_flink_minio_principal.sh": {
+    "mtime": 1786475964.545343,
+    "ast_hash": "15877634c36e3f965dcca967792f15da",
+    "semantic_hash": "15877634c36e3f965dcca967792f15da"
+  },
+  "validacion_kafka/validate_kafka_dr.sh": {
+    "mtime": 1784234200.1062443,
+    "ast_hash": "62c1d828da25b3c237202b5b8b0b44a9",
+    "semantic_hash": "62c1d828da25b3c237202b5b8b0b44a9"
+  },
+  "validacion_kafka/validate_kafka_principal.sh": {
+    "mtime": 1784234196.9202442,
+    "ast_hash": "dd7d673c368d776437594f7a61390442",
+    "semantic_hash": "dd7d673c368d776437594f7a61390442"
+  },
+  "validacion_minio/validate_minio_dr.sh": {
+    "mtime": 1782489950.6300404,
+    "ast_hash": "2148ee947cb602eba32c4414aace67ed",
+    "semantic_hash": "2148ee947cb602eba32c4414aace67ed"
+  },
+  "validacion_minio/validate_minio_principal.sh": {
+    "mtime": 1782489939.6735766,
+    "ast_hash": "d820addde3b032a27fdb8c19367b2592",
+    "semantic_hash": "d820addde3b032a27fdb8c19367b2592"
+  },
+  "validacion_observabilidad/validate_obs_agents.sh": {
+    "mtime": 1784235616.9113321,
+    "ast_hash": "a7bdecf4c7236bbb5d7d53fb46ca4c47",
+    "semantic_hash": "a7bdecf4c7236bbb5d7d53fb46ca4c47"
+  },
+  "validacion_observabilidad/validate_obs_stack_dr.sh": {
+    "mtime": 1784325906.9120498,
+    "ast_hash": "80bda834406d264808998289448140c8",
+    "semantic_hash": "80bda834406d264808998289448140c8"
+  },
+  "validacion_observabilidad/validate_obs_stack_principal.sh": {
+    "mtime": 1784324948.6732285,
+    "ast_hash": "6fbfc94df35ba9b169b9b9430d6b2d38",
+    "semantic_hash": "6fbfc94df35ba9b169b9b9430d6b2d38"
+  },
+  ".claude/CLAUDE.md": {
+    "mtime": 1786467165.3440142,
+    "ast_hash": "9b31786b637be3c13978bec4c2330752",
+    "semantic_hash": "9b31786b637be3c13978bec4c2330752"
+  },
+  ".claude/skills/graphify/SKILL.md": {
+    "mtime": 1786467165.3438177,
+    "ast_hash": "1656a8a8e4a05bbe69f32cd15de81e87",
+    "semantic_hash": "1656a8a8e4a05bbe69f32cd15de81e87"
+  },
+  ".claude/skills/graphify/references/add-watch.md": {
+    "mtime": 1786382799.083711,
+    "ast_hash": "d59d027fe449f06aa03905a01184e779",
+    "semantic_hash": "d59d027fe449f06aa03905a01184e779"
+  },
+  ".claude/skills/graphify/references/exports.md": {
+    "mtime": 1786382799.083711,
+    "ast_hash": "9da2a2152e60a22f07f05fed5158f287",
+    "semantic_hash": "9da2a2152e60a22f07f05fed5158f287"
+  },
+  ".claude/skills/graphify/references/extraction-spec.md": {
+    "mtime": 1786382799.093711,
+    "ast_hash": "42fef56a01698118f7fd722acdadea34",
+    "semantic_hash": "42fef56a01698118f7fd722acdadea34"
+  },
+  ".claude/skills/graphify/references/github-and-merge.md": {
+    "mtime": 1786382799.093711,
+    "ast_hash": "cde13df085e4c492aeb7ba298a996d0d",
+    "semantic_hash": "cde13df085e4c492aeb7ba298a996d0d"
+  },
+  ".claude/skills/graphify/references/hooks.md": {
+    "mtime": 1786382799.0947108,
+    "ast_hash": "3f545db6ce646650bb9de588f5512a27",
+    "semantic_hash": "3f545db6ce646650bb9de588f5512a27"
+  },
+  ".claude/skills/graphify/references/query.md": {
+    "mtime": 1786382799.0947108,
+    "ast_hash": "3c46f8ad006874260614ed8657d02307",
+    "semantic_hash": "3c46f8ad006874260614ed8657d02307"
+  },
+  ".claude/skills/graphify/references/transcribe.md": {
+    "mtime": 1786382799.0957108,
+    "ast_hash": "67b6a5fa6c0974e18f60db9f8932fbd8",
+    "semantic_hash": "67b6a5fa6c0974e18f60db9f8932fbd8"
+  },
+  ".claude/skills/graphify/references/update.md": {
+    "mtime": 1786382799.0957108,
+    "ast_hash": "9378bd03d56baaf78bd738ab3848f142",
+    "semantic_hash": "9378bd03d56baaf78bd738ab3848f142"
+  },
+  "CLAUDE.md": {
+    "mtime": 1786467165.34437,
+    "ast_hash": "82efb97a359f5c7290bf2513d14686be",
+    "semantic_hash": "82efb97a359f5c7290bf2513d14686be"
+  },
+  "context/Bluepoint_PlanImplementacion_v2._06042026.md": {
+    "mtime": 1782486543.9291432,
+    "ast_hash": "7190f2692545d5a5d119592df3990b68",
+    "semantic_hash": "7190f2692545d5a5d119592df3990b68"
+  },
+  "context/Contexto-extra-correos.md": {
+    "mtime": 1786465667.081654,
+    "ast_hash": "636e6a773a4870756634808be317190c",
+    "semantic_hash": "636e6a773a4870756634808be317190c"
+  },
+  "context/hostnames.txt": {
+    "mtime": 1783608481.8479338,
+    "ast_hash": "0892c7f3a3e7f07b39d7f5b4c2982321",
+    "semantic_hash": "0892c7f3a3e7f07b39d7f5b4c2982321"
+  },
+  "context/versiones-finales.md": {
+    "mtime": 1783541481.606833,
+    "ast_hash": "36ca65c6444feca912b3a64a88e523d3",
+    "semantic_hash": "36ca65c6444feca912b3a64a88e523d3"
+  },
+  "logs/flink/dr/pbigd-plat-apps01-cont.txt": {
+    "mtime": 1783460305.8475473,
+    "ast_hash": "37bed1b33083dd11956da8e7b68a3634",
+    "semantic_hash": "37bed1b33083dd11956da8e7b68a3634"
+  },
+  "logs/flink/dr/pbigd-proc01-cont.txt": {
+    "mtime": 1783460295.7327304,
+    "ast_hash": "a3242793c646597e25d80d940e74e470",
+    "semantic_hash": "a3242793c646597e25d80d940e74e470"
+  },
+  "logs/flink/dr/pbigd-proc02-cont.txt": {
+    "mtime": 1783460383.4925451,
+    "ast_hash": "8ce6d82deb5d3bed5b6233572225abe3",
+    "semantic_hash": "8ce6d82deb5d3bed5b6233572225abe3"
+  },
+  "logs/flink/principal/pbigd-apps01.txt": {
+    "mtime": 1783455508.964439,
+    "ast_hash": "d0fb74bc2cf95be34e95f9265e5478de",
+    "semantic_hash": "d0fb74bc2cf95be34e95f9265e5478de"
+  },
+  "logs/flink/principal/pbigd-proc01.txt": {
+    "mtime": 1783455636.028525,
+    "ast_hash": "d38298b648170ae3382faf99d2a1090e",
+    "semantic_hash": "d38298b648170ae3382faf99d2a1090e"
+  },
+  "logs/flink/principal/pbigd-proc02.txt": {
+    "mtime": 1783455668.6364343,
+    "ast_hash": "ff99cd52fdc24dd1ec8fd45fb4a4f1f4",
+    "semantic_hash": "ff99cd52fdc24dd1ec8fd45fb4a4f1f4"
+  },
+  "logs/flink/principal/pbigd-proc03.txt": {
+    "mtime": 1783455699.7085452,
+    "ast_hash": "0c057369c2305af9f8c9cffc9e57de0e",
+    "semantic_hash": "0c057369c2305af9f8c9cffc9e57de0e"
+  },
+  "logs/integracion-kafka-flink/principal.txt": {
+    "mtime": 1784671285.4121552,
+    "ast_hash": "cf3a9b79d6f3f81a0e20966933087c35",
+    "semantic_hash": "cf3a9b79d6f3f81a0e20966933087c35"
+  },
+  "logs/kafka/dr/pbigd-kaf01-cont.txt": {
+    "mtime": 1784231863.0137196,
+    "ast_hash": "ee93c63e4b45e8ea902d3cd5a6b48ea7",
+    "semantic_hash": "ee93c63e4b45e8ea902d3cd5a6b48ea7"
+  },
+  "logs/kafka/dr/pbigd-kaf02-cont.txt": {
+    "mtime": 1784231881.649495,
+    "ast_hash": "687d56c554e12b110cc13d6a9385ae16",
+    "semantic_hash": "687d56c554e12b110cc13d6a9385ae16"
+  },
+  "logs/kafka/dr/pbigd-kaf03-cont.txt": {
+    "mtime": 1784231894.1478403,
+    "ast_hash": "7c52825ceb5b3fc6aec63403dce35a67",
+    "semantic_hash": "7c52825ceb5b3fc6aec63403dce35a67"
+  },
+  "logs/kafka/principal/pbigd-kaf01.txt": {
+    "mtime": 1784234335.830253,
+    "ast_hash": "d4d0cdcc838730167994b322c3702747",
+    "semantic_hash": "d4d0cdcc838730167994b322c3702747"
+  },
+  "logs/kafka/principal/pbigd-kaf02.txt": {
+    "mtime": 1784234348.3050883,
+    "ast_hash": "668fe905eb06230c1230f08c8683e608",
+    "semantic_hash": "668fe905eb06230c1230f08c8683e608"
+  },
+  "logs/kafka/principal/pbigd-kaf03.txt": {
+    "mtime": 1784234358.9372542,
+    "ast_hash": "004bb6b9bf58a42d798dc27e0db8f92c",
+    "semantic_hash": "004bb6b9bf58a42d798dc27e0db8f92c"
+  },
+  "logs/obs/agent.general.txt": {
+    "mtime": 1784240965.6059725,
+    "ast_hash": "240d53b73d86209180cf383b9b4497a8",
+    "semantic_hash": "240d53b73d86209180cf383b9b4497a8"
+  },
+  "logs/obs/stack-dr.txt": {
+    "mtime": 1784326071.9356527,
+    "ast_hash": "823dcf66ac6a3093904bc1d73ffa28de",
+    "semantic_hash": "823dcf66ac6a3093904bc1d73ffa28de"
+  },
+  "logs/obs/stack-principal.txt": {
+    "mtime": 1784926076.220227,
+    "ast_hash": "f3cde57e0c2c02d835a1881d5b72a6d9",
+    "semantic_hash": "f3cde57e0c2c02d835a1881d5b72a6d9"
+  },
+  "validacion_flink/informe_flink_dr.html": {
+    "mtime": 1783532680.8484392,
+    "ast_hash": "4d4cb44d559ffe695a74fdc024d871d3",
+    "semantic_hash": "4d4cb44d559ffe695a74fdc024d871d3"
+  },
+  "validacion_flink/informe_flink_principal.html": {
+    "mtime": 1783532680.8476937,
+    "ast_hash": "b1cc2a405ef23a6c5aaded31a5919775",
+    "semantic_hash": "b1cc2a405ef23a6c5aaded31a5919775"
+  },
+  "validacion_flink/preparacion_checkpoints_minio.md": {
+    "mtime": 1785181733.1869266,
+    "ast_hash": "dfd127735fd13aec53087930e53b497a",
+    "semantic_hash": "dfd127735fd13aec53087930e53b497a"
+  },
+  "validacion_flink/preparacion_validacion_flink.md": {
+    "mtime": 1782486347.3931491,
+    "ast_hash": "218081cf35d0bde802918dab86931634",
+    "semantic_hash": "218081cf35d0bde802918dab86931634"
+  },
+  "validacion_flink/resumen_ejecutivo_flink.md": {
+    "mtime": 1783462349.9654856,
+    "ast_hash": "b24f10346eaebc377b3a02184cdeb96a",
+    "semantic_hash": "b24f10346eaebc377b3a02184cdeb96a"
+  },
+  "validacion_flink/validacion_funcional_flink_tarea24.md": {
+    "mtime": 1782506213.3895488,
+    "ast_hash": "f3fc0af6edb4eafe38d5a62105823245",
+    "semantic_hash": "f3fc0af6edb4eafe38d5a62105823245"
+  },
+  "validacion_flink_kafka/preparacion_integracion_kafka_flink.md": {
+    "mtime": 1784754884.9306662,
+    "ast_hash": "f94748644c1b6720f66bfc08c21fa5dd",
+    "semantic_hash": "f94748644c1b6720f66bfc08c21fa5dd"
+  },
+  "validacion_flink_minio/preparacion_integracion_flink_minio.md": {
+    "mtime": 1785772725.3755035,
+    "ast_hash": "0669242811086e8aa3e67b0ab5fa54df",
+    "semantic_hash": "0669242811086e8aa3e67b0ab5fa54df"
+  },
+  "validacion_kafka/diagnostico_quorum_incompleto.md": {
+    "mtime": 1783630719.5303175,
+    "ast_hash": "305ae7127165d70838124201d7cd68b8",
+    "semantic_hash": "305ae7127165d70838124201d7cd68b8"
+  },
+  "validacion_kafka/informe_kafka_dr.html": {
+    "mtime": 1783634830.5056489,
+    "ast_hash": "8895c626ff2244dd40fd6d1eaa0bc227",
+    "semantic_hash": "8895c626ff2244dd40fd6d1eaa0bc227"
+  },
+  "validacion_kafka/informe_kafka_principal.html": {
+    "mtime": 1783634742.7706513,
+    "ast_hash": "74a5630df979debf606a1eff5b0ad709",
+    "semantic_hash": "74a5630df979debf606a1eff5b0ad709"
+  },
+  "validacion_kafka/preparacion_validacion_kafka.md": {
+    "mtime": 1783625292.528937,
+    "ast_hash": "33fcc2f564fb4321b5aabf55e87ba066",
+    "semantic_hash": "33fcc2f564fb4321b5aabf55e87ba066"
+  },
+  "validacion_minio/preparacion_validacion_minio.md": {
+    "mtime": 1782487437.2201164,
+    "ast_hash": "a09b94989a303b876512f226f27b6738",
+    "semantic_hash": "a09b94989a303b876512f226f27b6738"
+  },
+  "validacion_observabilidad/ejeucion_validacion_observabilidad.md": {
+    "mtime": 1784058606.334106,
+    "ast_hash": "73bd2e95cb0b4ef4172b9044b6dda62c",
+    "semantic_hash": "73bd2e95cb0b4ef4172b9044b6dda62c"
+  },
+  "vms_obs_validadas.md": {
+    "mtime": 1784241402.8048086,
+    "ast_hash": "0027f8cf8312df553aa4f3ad2d8d778d",
+    "semantic_hash": "0027f8cf8312df553aa4f3ad2d8d778d"
+  },
+  "context/artquitectura-flink-minio-gravitino.png": {
+    "mtime": 1786465449.4456983,
+    "ast_hash": "584a8ce778c84b51133e50a593fbc85b",
+    "semantic_hash": "584a8ce778c84b51133e50a593fbc85b"
+  },
+  "context/ha arquitectura.png": {
+    "mtime": 1785532956.301319,
+    "ast_hash": "43674409fce2f30d7b877a2e771cc9cb",
+    "semantic_hash": "43674409fce2f30d7b877a2e771cc9cb"
+  },
+  "imagen.png": {
+    "mtime": 1783541221.911841,
+    "ast_hash": "b305473f84282bf597f5d7ab531b0e0b",
+    "semantic_hash": "b305473f84282bf597f5d7ab531b0e0b"
+  },
+  "validacion_haproxy_minio/validate_haproxy_minio_dr.sh": {
+    "mtime": 1786468952.7475548,
+    "ast_hash": "2bdad2e670dd23af7234bceb924c059a",
+    "semantic_hash": "2bdad2e670dd23af7234bceb924c059a"
+  },
+  "validacion_haproxy_minio/validate_haproxy_minio_principal.sh": {
+    "mtime": 1786468889.0635567,
+    "ast_hash": "a21b310de45cb956921e20ddf871af77",
+    "semantic_hash": "a21b310de45cb956921e20ddf871af77"
+  },
+  "validacion_flink_minio/guia_pasos_manuales_flink_minio.md": {
+    "mtime": 1786476040.2594337,
+    "ast_hash": "ca9bf28ee031630a113b62b2859720c3",
+    "semantic_hash": "ca9bf28ee031630a113b62b2859720c3"
+  },
+  "validacion_haproxy_minio/guia_pasos_manuales_haproxy_minio.md": {
+    "mtime": 1786469014.3145528,
+    "ast_hash": "1ca4a603834297242ba0e56df35eb820",
+    "semantic_hash": "1ca4a603834297242ba0e56df35eb820"
+  }
+}

@@ -14,7 +14,7 @@ plugin del filesystem S3 instalado en cada nodo.
 | Ítem | Detalle |
 |---|---|
 | Bucket MinIO `flink-checkpoints` | **No existe hoy** — no está en `REQUIRED_BUCKETS` de `validacion_minio`. Debe crearse antes de la primera prueba. |
-| Endpoint MinIO alcanzable | `http://pbigd-stg01:9000` desde los 4 nodos Flink (JM + 3 TM) |
+| Endpoint MinIO alcanzable | `http://pbigd-stg01:9000` (nodo individual, valor por defecto) desde los 4 nodos Flink (JM + 3 TM). Si la VIP/DNS de HAProxy delante de MinIO (`validacion_haproxy_minio/`) ya está operativa, `s3.endpoint` debería apuntar ahí en vez de al nodo individual — ver nota abajo |
 | Credenciales S3 | Access key / secret key con permisos read/write sobre el bucket `flink-checkpoints` |
 
 Crear el bucket (desde un nodo con `mc` configurado, ver `validacion_minio/`):
@@ -70,7 +70,7 @@ execution.checkpointing.max-concurrent-checkpoints: 1
 execution.checkpointing.externalized-checkpoint-retention: RETAIN_ON_CANCELLATION
 
 # --- Conexión S3 hacia MinIO (no es AWS S3 real) ---
-s3.endpoint: http://pbigd-stg01:9000
+s3.endpoint: http://pbigd-stg01:9000  # nodo individual, ejemplo — usar la VIP/DNS de HAProxy si ya está desplegada
 s3.path.style.access: true
 s3.access-key: <ACCESS_KEY>
 s3.secret-key: <SECRET_KEY>
@@ -86,6 +86,17 @@ s3.secret-key: <SECRET_KEY>
 > archivo si el entorno lo permite — usar variables de entorno
 > (`ENABLE_BUILT_IN_PLUGINS` + credenciales inyectadas por systemd/Podman secrets)
 > en vez del `.yaml` cuando sea posible.
+
+> **Nota sobre `s3.endpoint` — nodo individual vs. VIP/DNS:** el valor de
+> ejemplo arriba apunta a un nodo individual de MinIO, no a una VIP/DNS de
+> alta disponibilidad (no hay ninguna confirmada como estática en este
+> repositorio). Los scripts de `validacion_flink_minio/` (Módulo 1.5) validan
+> justamente que `s3.endpoint` coincida con la VIP/DNS esperada cuando se
+> ejecutan con `--vip <IP>` o `--dns <nombre>`; sin esos flags, marcan con un
+> WARN explícito que la validación quedó contra el nodo individual. Si la
+> capa HAProxy/Keepalived (`validacion_haproxy_minio/`) ya está operativa,
+> actualizar `s3.endpoint` aquí a la VIP/DNS real antes de reconfigurar
+> Flink.
 
 ---
 

@@ -1,0 +1,109 @@
+
+  HAProxy + Keepalived · Capa de acceso único delante de MinIO
+
+  Cooperativa Jardín Azuayo — Proyecto Big Data
+  Entorno: DR (Datacenter Alterno)
+  Nodo actual: pbigd-stg02-cont  (rol detectado: pbigd-stg02-cont)
+  Fecha/Hora: 2026-08-12 12:25:02 -05
+
+
+══════════════════════════════════════════════════════
+  MÓDULO 1 · Despliegue y topología
+══════════════════════════════════════════════════════
+[INFO] 1.1 Buscando contenedor HAProxy (podman ps)...
+[PASS] Contenedor HAProxy encontrado y corriendo: haproxy       Up 4 days       docker.io/library/haproxy:2.8.6
+[INFO] 1.2 Verificando usuario del proceso dentro del contenedor...
+[PASS] Usuario dentro del contenedor HAProxy: haproxy (no-root, correcto — decisión del correo 2026-08-06)
+[INFO] 1.3 Buscando unidad systemd/Quadlet de HAProxy (usuario y sistema)...
+[PASS] Unidad systemd --user: haproxy.service — activa — habilitada: generated
+[INFO] 1.4 Verificando proceso keepalived...
+[PASS] keepalived corriendo — usuario: root (correcto, requiere privilegios de kernel para VRRP/VIP/ARP gratuito)
+[INFO] 1.5 Verificando unidad systemd de keepalived (host)...
+[PASS] systemd keepalived.service — activa — habilitada: enabled
+[INFO] 1.6 Cruzando 1.1–1.5 para detectar inconsistencias de despliegue...
+[PASS] keepalived no aparece containerizado en este nodo (correcto)
+[PASS] No se detectó HAProxy corriendo fuera de contenedor en este nodo (correcto)
+[INFO] Repetir este módulo en los otros 2 nodos (pbigd-stg01-cont pbigd-stg02-cont pbigd-stg03-cont) y comparar manualmente — no hay SSH sin contraseña disponible entre nodos en este entorno (mismo patrón que Kafka↔Flink)
+[INFO] 1.7 Recursos del nodo tras la carga adicional de HAProxy+Keepalived (informativo, no afecta PASS/FAIL)...
+[INFO]   RAM libre: 4.4Gi / total: 5.5Gi
+[INFO]   vCPUs: 2
+[INFO]   Carga (load average):  0.04, 0.04, 0.00
+
+══════════════════════════════════════════════════════
+  MÓDULO 2 · Ruteo y separación de tráfico
+══════════════════════════════════════════════════════
+[INFO] Leyendo configuración de HAProxy dentro del contenedor...
+[PASS] Config de HAProxy leída desde:
+[INFO] 2.1 Verificando frontends separados para API S3 (9000) y Consola (9001)...
+[PASS] Frontends detectados para puerto 9000 (S3) y 9001 (Consola)
+[INFO] 2.2 Verificando que los backends listan los 3 nodos MinIO...
+[PASS] Backend incluye server hacia pbigd-stg01-cont
+[PASS] Backend incluye server hacia pbigd-stg02-cont
+[PASS] Backend incluye server hacia pbigd-stg03-cont
+[INFO] 2.3 Verificando health check aplicativo (no solo TCP)...
+[PASS] Health check aplicativo configurado contra endpoint nativo de MinIO:     http-check send meth GET uri /minio/health/ready ver HTTP/1.1 hdr Host minio-dr
+[INFO] Socket admin de HAProxy no accesible desde aquí (o no expuesto) — omitido, no es bloqueante
+[INFO] 2.4 Verificando a qué IP(s) del host queda expuesto HAProxy (podman port)...
+[PASS] podman port confirma exposición real solo en la VIP (172.17.210.182) para 9000/9001 — el 'bind' interno del .cfg no representa el riesgo real en este entorno rootless (pasta)
+[INFO] En el host, confirmando qué proceso escucha en 9000/9001...
+[INFO]     LISTEN 0      128    172.17.210.182:9001       0.0.0.0:*    users:(("pasta.avx2",pid=352951,fd=7))
+[INFO]     LISTEN 0      128    172.17.210.182:9000       0.0.0.0:*    users:(("pasta.avx2",pid=352951,fd=6))
+[INFO]     LISTEN 0      128    172.17.210.188:9001       0.0.0.0:*    users:(("pasta.avx2",pid=268495,fd=7))
+[INFO]     LISTEN 0      128    172.17.210.188:9000       0.0.0.0:*    users:(("pasta.avx2",pid=268495,fd=6))
+
+══════════════════════════════════════════════════════
+  MÓDULO 3 · Objetos grandes (buffering / límite de tamaño)
+══════════════════════════════════════════════════════
+[INFO] 3.1 Verificando ausencia de límites de tamaño de cuerpo / buffering forzado...
+[PASS] No se encontraron reglas explícitas de límite de tamaño de cuerpo en la config
+[INFO] Timeouts configurados:
+[INFO]     timeout connect 10s
+[INFO]     timeout client 15m
+[INFO]     timeout server 15m
+[INFO]     timeout http-request 30s
+[INFO]     timeout queue 1m
+[INFO]     timeout tunnel 1h
+[INFO] 3.2 Prueba funcional de objeto grande omitida (--skip-big-object)
+
+══════════════════════════════════════════════════════
+  MÓDULO 4 · Alta disponibilidad real (VIP / failover)
+══════════════════════════════════════════════════════
+[INFO] 4.1 Verificando presencia de la VIP en la interfaz de red local...
+[INFO] Interfaz en uso: ens34
+[INFO] VIP (172.17.210.182) NO está en este nodo — normal si este nodo es BACKUP. Confirmar en los otros 2 nodos:
+[INFO]     ip addr show ens34 | grep 172.17.210.182
+[INFO] 4.2 Intentando leer estado VRRP en journal de keepalived...
+[MANUAL] journal de keepalived no accesible como usuario actual (journald restringido) — verificación manual pendiente
+[INFO] 4.3 Probando tráfico real contra la VIP (S3 y Consola)...
+[PASS] VIP S3 (itaca.jardinazuayo.fin.ec:9000) — /minio/health/live HTTP 200
+[PASS] VIP Consola (itaca.jardinazuayo.fin.ec:9001) — HTTP 200
+  [MANUAL] 4.4 Prueba de failover real (VIP debe migrar al BACKUP): NO se automatiza con sudo embebido.
+[MANUAL] 4.4 verificación manual pendiente (no ejecutado por este script)
+[INFO] 4.5 Verificando resolución del nombre DNS interno de la VIP...
+[PASS] DNS 'itaca.jardinazuayo.fin.ec' resuelve a 172.17.210.182 (coincide con la VIP esperada)
+
+══════════════════════════════════════════════════════
+  MÓDULO 5 · Configuración de Keepalived (sensible)
+══════════════════════════════════════════════════════
+[INFO] 5.1 Intentando leer /etc/keepalived/keepalived.conf como usuario actual (sin sudo)...
+[PASS] keepalived.conf legible — VIP: 172.17.210.182 — interfaz: ens34 — priority: 100
+[PASS] Bloque de autenticación VRRP presente (no se imprime auth_pass)
+
+══════════════════════════════════════════════════════
+  MÓDULO 6 · Prerrequisitos de virtualización (vCenter/ESXi)
+══════════════════════════════════════════════════════
+[MANUAL] 6.1 IP reservada para la VIP en el segmento de red de pbigd-stg01-cont pbigd-stg02-cont pbigd-stg03-cont — verificación manual pendiente (sin acceso a vCenter/ESXi desde este script)
+[MANUAL] 6.2 'Forged Transmits' en modo Accept (no Reject) en el port group del vSwitch de estos 3 nodos — verificación manual pendiente
+[MANUAL] 6.3 Regla de anti-afinidad DRS entre pbigd-stg01-cont pbigd-stg02-cont pbigd-stg03-cont — verificar que sigue aplicada; ahora también protege a HAProxy/Keepalived co-ubicados, no solo al quórum de MinIO — verificación manual pendiente
+
+══════════════════════════════════════════════════════
+  RESUMEN DE VALIDACIÓN
+══════════════════════════════════════════════════════
+  Componente : HAProxy + Keepalived delante de MinIO
+  Entorno    : DR (Datacenter Alterno)
+  Nodo       : pbigd-stg02-cont
+  Fecha      : 2026-08-12 12:25:03 -05
+
+  25 checks / 20 PASS / 0 FAIL / 0 WARN / 5 MANUAL
+
+  ⚠️   VALIDACIÓN SIN ERRORES NI ADVERTENCIAS — 5 VERIFICACIÓN(ES) MANUAL(ES) PENDIENTE(S)
