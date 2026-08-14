@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Integración Flink→MinIO Principal</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-fail{background:#fce8e8;color:#a3201f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Integración funcional Flink → MinIO (checkpoints vía plugin S3)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Principal (DC Principal)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-plat-apps01</code> (JobManager, automatizado) ·
+TaskManagers <code>pbigd-proc01/02/03</code> (verificación manual del operador, módulo 2)</td></tr>
+<tr><td class="lbl">Endpoint / Bucket</td><td><code>http://172.17.210.62:9000</code> (VIP MinIO) · bucket
+<code>flink-checkpoints</code></td></tr>
+<tr><td class="lbl">Versión del software</td><td>Flink 2.x (config.yaml) · plugin
+<code>flink-s3-fs-hadoop-2.2.1.jar</code></td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Contenedor JobManager Podman, corriendo hace 16 horas al momento de la
+validación</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>13 de agosto de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-warn">⚠ APROBADO CON OBSERVACIONES</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó la integración funcional Flink → MinIO del entorno Principal el 13 de agosto de 2026, mediante el
+script <code>validate_flink_minio_principal.sh</code> ejecutado en el nodo JobManager
+(<code>pbigd-plat-apps01</code>), cubriendo 3 módulos (prerrequisitos de bucket/plugin/config en el JobManager,
+confirmación manual de TaskManagers, e integración funcional real vía un job Flink SQL de prueba con
+checkpointing) con 15 puntos de control. El script asume que <code>validate_flink_principal.sh</code> y
+<code>validate_minio_principal.sh</code> ya se ejecutaron por separado — este informe cubre exclusivamente la
+integración entre ambos componentes.</p>
+
+<p>MinIO es alcanzable desde el JobManager, el bucket <code>flink-checkpoints</code> responde, el plugin S3 y la
+configuración de checkpoints están presentes y correctamente apuntados a la VIP de MinIO
+(<code>http://itaca:9000</code>, resuelto a la misma IP que la VIP esperada). Se sometió un job Flink SQL de
+prueba real (datagen → print) que alcanzó estado RUNNING y completó un checkpoint persistido efectivamente en
+<code>s3://flink-checkpoints/checkpoints/...</code>, confirmando la integración de punta a punta sin fallas. Se
+registró una única advertencia de seguridad real: <code>config.yaml</code> tiene permisos 755 (legible por
+"otros") y contiene las credenciales S3 en texto plano.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">14</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">1</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>El script valida un único rol automatizado (JobManager) y una confirmación manual de otro rol (TaskManagers),
+por lo que se presentan como dos bloques dentro de la misma matriz en vez de forzar columnas equivalentes.</p>
+
+<table width="680">
+<tr><th width="420">Verificación — JobManager (pbigd-plat-apps01)</th><th>Resultado</th></tr>
+<tr><td>1.1 MinIO alcanzable desde el JobManager (HTTP 200)</td><td class="pass">PASS</td></tr>
+<tr><td>1.2 Bucket 'flink-checkpoints' responde en MinIO (HTTP 403 esperado)</td><td class="pass">PASS</td></tr>
+<tr><td>1.3 Contenedor JobManager corriendo</td><td class="pass">PASS</td></tr>
+<tr><td>1.4 Plugin S3 (<code>flink-s3-fs-hadoop-2.2.1.jar</code>) presente</td><td class="pass">PASS</td></tr>
+<tr><td>1.5 Configuración de checkpoints/S3 encontrada en config.yaml</td><td class="pass">PASS</td></tr>
+<tr><td>1.6 s3.endpoint coincide con la IP de la VIP esperada</td><td class="pass">PASS</td></tr>
+<tr><td>1.7 path-style access habilitado explícitamente</td><td class="pass">PASS</td></tr>
+<tr><td>1.8 Credenciales S3 configuradas en config.yaml</td><td class="pass">PASS</td></tr>
+<tr><td>1.9 Permisos de config.yaml y exposición de credenciales</td><td class="warn">WARN (755, texto plano)</td></tr>
+<tr><td>3.1 Script SQL de prueba copiado al JobManager</td><td class="pass">PASS</td></tr>
+<tr><td>3.2 Job Flink SQL RUNNING confirmado vía REST API</td><td class="pass">PASS</td></tr>
+<tr><td>3.3 Checkpoint COMPLETED confirmado vía REST API</td><td class="pass">PASS</td></tr>
+<tr><td>3.4 Checkpoint persistido en el bucket flink-checkpoints</td><td class="pass">PASS</td></tr>
+<tr><td>3.5 Job de prueba cancelado correctamente vía REST API</td><td class="pass">PASS</td></tr>
+</table>
+
+<table width="680">
+<tr><th width="420">Verificación — TaskManagers (pbigd-proc01/02/03)</th><th>Resultado</th></tr>
+<tr><td>2.1 Plugin S3 + configuración presentes (3/3 nodos)</td><td class="na">MANUAL — confirmado por el operador</td></tr>
+</table>
+<p class="small">Total (según resumen del propio script): 15 checks / 14 PASS / 0 FAIL / 1 WARN, sobre el nodo
+JobManager pbigd-plat-apps01. La verificación de TaskManagers (módulo 2) es manual por diseño del script y no se
+contabiliza como PASS automatizado.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>config.yaml con permisos 755 y credenciales S3 en texto plano</td>
+<td>Módulo 1.9: <code>config.yaml tiene permisos 755 (legible por 'otros') y contiene credenciales en texto
+plano</code>. El archivo incluye <code>s3.access-key</code>/<code>s3.secret-key</code> en claro y es legible por
+cualquier usuario del sistema, no solo por el propietario del proceso Flink. Es un hallazgo de seguridad real,
+no un defecto cosmético, aunque el script lo reporte como WARN y no como FAIL.</td>
+<td><b>Restringir permisos de <code>config.yaml</code> a <code>600</code> (solo lectura/escritura del usuario
+propietario del proceso Flink) y evaluar migrar las credenciales S3 a Podman secrets o a un gestor de secretos,
+en vez de mantenerlas en texto plano dentro del archivo de configuración.</b></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Prerrequisitos de integración (bucket, plugin, configuración)</h2>
+<p>El JobManager alcanza el endpoint de MinIO Principal y el bucket <code>flink-checkpoints</code> responde
+(HTTP 403 sin credenciales es el comportamiento esperado del propio MinIO, no un error). El plugin
+<code>flink-s3-fs-hadoop-2.2.1.jar</code> está presente en <code>/opt/flink/plugins/s3-fs-hadoop/</code>, y la
+configuración de <code>state.checkpoints.dir</code> / <code>state.savepoints.dir</code> apunta correctamente al
+bucket <code>flink-checkpoints</code> vía <code>s3://</code>. El <code>s3.endpoint</code> configurado
+(<code>http://itaca:9000</code>, nombre corto) resuelve a la misma IP que la VIP esperada
+(172.17.210.62) — el nombre difiere de la forma FQDN pero apunta al mismo destino, confirmado explícitamente por
+el propio script.</p>
+
+<h2 class="sub">4.2 Configuración de acceso S3 y exposición de credenciales</h2>
+<p><code>path.style.access</code> está habilitado explícitamente, requerido para que el cliente S3 de Flink
+funcione correctamente contra MinIO (en vez de resolución por virtual-hosted-style). Las credenciales S3 están
+presentes en <code>config.yaml</code>, pero el archivo tiene permisos 755 y las credenciales quedan en texto
+plano — ver hallazgo §3, tratado como acción obligatoria pese a que el script lo clasifica como WARN.</p>
+
+<h2 class="sub">4.3 Integración funcional real (checkpoint de punta a punta)</h2>
+<p>El script generó y sometió un job Flink SQL real (fuente <code>datagen</code> → sink <code>print</code>, con
+checkpointing habilitado a intervalo de 60000 ms), confirmó estado RUNNING vía la REST API de Flink
+(<code>job id: 0d865a10b18ce4e0c6c0cd14b6cc7a8b</code>), y esperó hasta 90 segundos a que se completara un
+checkpoint. El checkpoint se confirmó <code>COMPLETED</code> con ruta externa
+<code>s3://flink-checkpoints/checkpoints/0d865a10.../chk-1</code>, es decir, quedó físicamente persistido en
+MinIO — la prueba más fuerte de que la integración funciona de punta a punta, no solo a nivel de configuración
+estática. El job de prueba se canceló limpiamente al finalizar.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<ol>
+<li>Restringir permisos de <code>config.yaml</code> en el JobManager de <code>pbigd-plat-apps01</code> a
+<code>600</code> y validar que ningún otro usuario del sistema pueda leer las credenciales S3 en texto plano.</li>
+</ol>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Evaluar migrar <code>s3.access-key</code>/<code>s3.secret-key</code> a Podman secrets o a un gestor de
+secretos externo, en vez de mantenerlas embebidas en <code>config.yaml</code>.</li>
+<li>Confirmar de forma automatizada (no solo manual) el plugin S3 y la configuración en los 3 TaskManagers
+(<code>pbigd-proc01/02/03</code>) en una futura versión del script.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Estandarizar el nombre usado en <code>s3.endpoint</code> (<code>itaca</code>) hacia el FQDN completo
+(<code>itaca.jardinazuayo.fin.ec</code>) para consistencia documental, aunque no representa un riesgo funcional
+actual.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>La integración funcional Flink → MinIO del entorno Principal está operativa: el flujo completo de
+checkpointing (creación de job → RUNNING → checkpoint COMPLETED → persistencia real en el bucket
+<code>flink-checkpoints</code>) fue verificado de punta a punta contra la infraestructura real, sin ninguna
+falla (FAIL). El único hallazgo registrado es de seguridad — no de funcionalidad — y corresponde a permisos
+laxos y credenciales en texto plano en <code>config.yaml</code>.</p>
+
+<p>No se identificaron contradicciones entre módulos del log ni defectos del script de validación. La
+verificación manual de TaskManagers (3/3 confirmados por el operador) queda documentada como tal, sin mezclarse
+con los checks automatizados del JobManager.</p>
+
+<p><b>La integración Flink → MinIO Principal se considera apta para producción una vez restringidos los permisos
+de config.yaml a 600; el resto de la validación funcional no presenta objeciones.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 14 de agosto de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Integración Flink→MinIO Principal - Página 1</div>
+
+</body></html>

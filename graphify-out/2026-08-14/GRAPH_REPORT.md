@@ -1,11 +1,11 @@
 # Graph Report - validaciones  (2026-08-14)
 
 ## Corpus Check
-- 53 files · ~152,239 words
+- 50 files · ~146,863 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 386 nodes · 690 edges · 36 communities (33 shown, 3 thin omitted)
+- 361 nodes · 657 edges · 33 communities (30 shown, 3 thin omitted)
 - Extraction: 96% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 22 edges (avg confidence: 0.84)
 - Token cost: 0 input · 0 output
 
@@ -48,21 +48,18 @@
 - Guía de validación — Gravitino (Iceberg REST Catalog)
 - validate_gravitino_principal.sh
 - validate_trino_principal.sh
-- Guía de preparación — Validación de integración Trino → MinIO/AIStor (lectura/escritura de datos Iceberg)
-- validate_trino_minio_principal.sh
-- Guía de pasos manuales — Integración Trino → MinIO/AIStor (datos Iceberg)
 
 ## God Nodes (most connected - your core abstractions)
 1. `Informe de validación Flink DR (HTML)` - 15 edges
-2. `Guía de preparación — Validación de integración Trino → MinIO/AIStor (lectura/escritura de datos Iceberg)` - 11 edges
-3. `Plan de Implementación de software base — Proyecto Big Data (v2, 06-04-2026)` - 11 edges
-4. `Tabla de Estado de Implementación y Validación` - 11 edges
-5. `validate_flink_dr.sh script` - 10 edges
-6. `validate_flink_principal.sh script` - 10 edges
-7. `graphify skill (SKILL.md)` - 10 edges
-8. `Resumen Ejecutivo — Validación Flink (Principal + DR)` - 10 edges
-9. `validate_kafka_flink_dr_flink.sh script` - 9 edges
-10. `validate_haproxy_minio_dr.sh script` - 9 edges
+2. `Plan de Implementación de software base — Proyecto Big Data (v2, 06-04-2026)` - 11 edges
+3. `Tabla de Estado de Implementación y Validación` - 11 edges
+4. `validate_flink_dr.sh script` - 10 edges
+5. `validate_flink_principal.sh script` - 10 edges
+6. `graphify skill (SKILL.md)` - 10 edges
+7. `Resumen Ejecutivo — Validación Flink (Principal + DR)` - 10 edges
+8. `validate_kafka_flink_dr_flink.sh script` - 9 edges
+9. `validate_haproxy_minio_dr.sh script` - 9 edges
+10. `validate_haproxy_minio_principal.sh script` - 9 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Módulo 6 — Least-privilege de credenciales S3 de Flink` --semantically_similar_to--> `Check 5.1 — Lectura de /etc/keepalived/keepalived.conf`  [INFERRED] [semantically similar]
@@ -91,7 +88,7 @@
 - **Diagnóstico y resolución del cluster.id divergente en Kafka Principal** — validacion_kafka_diagnostico_quorum_incompleto, validacion_kafka_informe_kafka_principal, validacion_kafka_diagnostico_quorum_incompleto_cluster_id_mismatch [INFERRED 0.85]
 - **Contraste de política de capacidad en DR: Kafka pleno vs Flink/MinIO degradado** — validacion_kafka_preparacion_validacion_kafka, validacion_kafka_informe_kafka_dr [INFERRED 0.75]
 
-## Communities (36 total, 3 thin omitted)
+## Communities (33 total, 3 thin omitted)
 
 ### Community 0 - "Informe de validación Flink DR (HTML)"
 Cohesion: 0.11
@@ -213,18 +210,6 @@ Nodes (7): fail(), info(), log(), ok(), section(), validate_gravitino_principal.
 Cohesion: 0.56
 Nodes (8): fail(), info(), log(), ok(), section(), validate_trino_principal.sh script, tcp_port_open(), warn()
 
-### Community 33 - "Guía de preparación — Validación de integración Trino → MinIO/AIStor (lectura/escritura de datos Iceberg)"
-Cohesion: 0.17
-Nodes (11): DR — no se genera `validate_trino_minio_dr.sh`, Fuera de alcance de este script, Guía de preparación — Validación de integración Trino → MinIO/AIStor (lectura/escritura de datos Iceberg), Hallazgos documentales a reportar en el informe (no resueltos aquí), Por qué esta validación es distinta a Trino↔Gravitino, Prerrequisito 1 — Clúster Trino sano, Prerrequisito 2 — MinIO sano, Prerrequisito 3 — Catálogo Iceberg de Trino: nombre y ruta NO documentados (+3 more)
-
-### Community 34 - "validate_trino_minio_principal.sh"
-Cohesion: 0.53
-Nodes (7): fail(), info(), log(), ok(), section(), validate_trino_minio_principal.sh script, warn()
-
-### Community 35 - "Guía de pasos manuales — Integración Trino → MinIO/AIStor (datos Iceberg)"
-Cohesion: 0.50
-Nodes (3): Guía de pasos manuales — Integración Trino → MinIO/AIStor (datos Iceberg), Módulo 4 — Least-privilege de las credenciales S3 que usa Trino, Resumen de checks pendientes por permisos o alcance
-
 ## Ambiguous Edges - Review These
 - `graphify reference: extraction-spec (subagent prompt)` → `graphify reference: query, path, explain`  [AMBIGUOUS]
   .claude/skills/graphify/references/query.md · relation: references
@@ -234,7 +219,7 @@ Nodes (3): Guía de pasos manuales — Integración Trino → MinIO/AIStor (dato
   validacion_flink_minio/guia_pasos_manuales_flink_minio.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **53 isolated node(s):** `validacion-node-exporter.sh script`, `Sección 1 — Sistema Operativo, Java y prerequisitos`, `Sección 2 — Servicio y redundancia`, `Sección 3 — Validación funcional básica (sin MinIO)`, `Sección 4 — Logs y observabilidad` (+48 more)
+- **41 isolated node(s):** `validacion-node-exporter.sh script`, `Sección 1 — Sistema Operativo, Java y prerequisitos`, `Sección 2 — Servicio y redundancia`, `Sección 3 — Validación funcional básica (sin MinIO)`, `Sección 4 — Logs y observabilidad` (+36 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **3 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -248,10 +233,10 @@ _Questions this graph is uniquely positioned to answer:_
 - **What is the exact relationship between `flink-s3-fs-hadoop / flink-s3-fs-presto plugin` and `iceberg-flink-runtime JAR (integración Flink↔Iceberg/Gravitino, fuera de alcance)`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **Why does `Informe de validación Flink DR (HTML)` connect `Informe de validación Flink DR (HTML)` to `Stack Observabilidad DC Principal run — pbigd-plat-obs01`?**
-  _High betweenness centrality (0.006) - this node is a cross-community bridge._
+  _High betweenness centrality (0.007) - this node is a cross-community bridge._
 - **Why does `Kafka DR cluster (dr-kaf-1 / pbigd-kaf0X-cont)` connect `Stack Observabilidad DC Principal run — pbigd-plat-obs01` to `Informe de validación Flink DR (HTML)`?**
   _High betweenness centrality (0.005) - this node is a cross-community bridge._
 - **Why does `validate_flink_principal.sh run — pbigd-plat-apps01 (JM Principal)` connect `Informe de validación Flink DR (HTML)` to `Stack Observabilidad DC Principal run — pbigd-plat-obs01`?**
-  _High betweenness centrality (0.004) - this node is a cross-community bridge._
+  _High betweenness centrality (0.005) - this node is a cross-community bridge._
 - **What connects `validacion-node-exporter.sh script`, `Sección 1 — Sistema Operativo, Java y prerequisitos`, `Sección 2 — Servicio y redundancia` to the rest of the system?**
-  _53 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _41 weakly-connected nodes found - possible documentation gaps or missing edges._

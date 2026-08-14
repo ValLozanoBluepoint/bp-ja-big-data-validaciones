@@ -418,20 +418,5 @@
     "mtime": 1786727629.114729,
     "ast_hash": "2f9a3da741564a8262bdaa4eb5aca422",
     "semantic_hash": ""
-  },
-  "validacion_trino_minio/validate_trino_minio_principal.sh": {
-    "mtime": 1786735394.0238008,
-    "ast_hash": "7b5e0e6cccdbf5ead7450ef677493320",
-    "semantic_hash": ""
-  },
-  "validacion_trino_minio/guia_pasos_manuales_trino_minio.md": {
-    "mtime": 1786735465.616802,
-    "ast_hash": "db5da30ba876aa63db22855c41448c26",
-    "semantic_hash": ""
-  },
-  "validacion_trino_minio/preparacion_integracion_trino_minio.md": {
-    "mtime": 1786735450.222876,
-    "ast_hash": "8410510341742722e147b2871d9d95d4",
-    "semantic_hash": ""
   }
 }

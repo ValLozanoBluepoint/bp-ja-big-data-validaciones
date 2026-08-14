@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Integración Flink→MinIO DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-fail{background:#fce8e8;color:#a3201f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Integración funcional Flink → MinIO (checkpoints vía plugin S3)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>DR — Datacenter Alterno</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-plat-apps01-cont</code> (JobManager DR, automatizado) ·
+TaskManagers <code>pbigd-proc01-cont</code>/<code>pbigd-proc02-cont</code> (verificación manual del operador,
+módulo 2; capacidad reducida: 2 TaskManagers en vez de 3)</td></tr>
+<tr><td class="lbl">Endpoint / Bucket</td><td><code>http://itaca:9000</code> (VIP MinIO DR) · bucket
+<code>flink-checkpoints</code></td></tr>
+<tr><td class="lbl">Versión del software</td><td>Flink 2.x (config.yaml) · plugin
+<code>flink-s3-fs-hadoop-2.2.1.jar</code></td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Contenedor JobManager DR Podman, corriendo hace 29 horas al momento de la
+validación</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>13 de agosto de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-warn">⚠ APROBADO CON OBSERVACIONES</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó la integración funcional Flink → MinIO del entorno DR el 13 de agosto de 2026, mediante el script
+<code>validate_flink_minio_dr.sh</code> ejecutado en el JobManager DR (<code>pbigd-plat-apps01-cont</code>),
+cubriendo los mismos 3 módulos que en Principal, con 15 puntos de control. El propio script advierte que Flink DR
+opera con capacidad reducida (2 TaskManagers en vez de 3), aunque mantiene la misma exigencia funcional sobre el
+bucket <code>flink-checkpoints</code> que Principal. El script asume que <code>validate_flink_dr.sh</code> y
+<code>validate_minio_dr.sh</code> ya se ejecutaron por separado.</p>
+
+<p>MinIO DR es alcanzable desde el JobManager DR, el bucket <code>flink-checkpoints</code> responde, y el
+<code>s3.endpoint</code> configurado (<code>http://itaca:9000</code>) coincide exactamente con el VIP/DNS
+esperado en DR. Se sometió un job Flink SQL de prueba real que alcanzó estado RUNNING y completó un checkpoint
+persistido efectivamente en el bucket DR, confirmando la integración de punta a punta sin fallas. Al igual que en
+Principal, se registró una advertencia de seguridad real sobre <code>config.yaml</code> — en DR con severidad
+mayor: permisos <b>777</b> (legible y escribible por "otros"), frente a 755 en Principal.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">14</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">1</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Mismo esquema que Principal: un rol automatizado (JobManager DR) y una confirmación manual de TaskManagers DR,
+presentados en dos bloques dentro de la misma matriz.</p>
+
+<table width="680">
+<tr><th width="420">Verificación — JobManager DR (pbigd-plat-apps01-cont)</th><th>Resultado</th></tr>
+<tr><td>1.1 MinIO DR alcanzable desde el JobManager DR (HTTP 200)</td><td class="pass">PASS</td></tr>
+<tr><td>1.2 Bucket 'flink-checkpoints' responde en MinIO DR (HTTP 403 esperado)</td><td class="pass">PASS</td></tr>
+<tr><td>1.3 Contenedor JobManager DR corriendo</td><td class="pass">PASS</td></tr>
+<tr><td>1.4 Plugin S3 (<code>flink-s3-fs-hadoop-2.2.1.jar</code>) presente</td><td class="pass">PASS</td></tr>
+<tr><td>1.5 Configuración de checkpoints/S3 encontrada en config.yaml DR</td><td class="pass">PASS</td></tr>
+<tr><td>1.6 s3.endpoint DR coincide con el VIP/DNS pasado (itaca)</td><td class="pass">PASS</td></tr>
+<tr><td>1.7 path-style access habilitado explícitamente en DR</td><td class="pass">PASS</td></tr>
+<tr><td>1.8 Credenciales S3 configuradas en config.yaml DR</td><td class="pass">PASS</td></tr>
+<tr><td>1.9 Permisos de config.yaml DR y exposición de credenciales</td><td class="warn">WARN (777, texto plano)</td></tr>
+<tr><td>3.1 Script SQL de prueba DR copiado al JobManager DR</td><td class="pass">PASS</td></tr>
+<tr><td>3.2 Job Flink SQL DR RUNNING confirmado vía REST API</td><td class="pass">PASS</td></tr>
+<tr><td>3.3 Checkpoint COMPLETED confirmado vía REST API (DR)</td><td class="pass">PASS</td></tr>
+<tr><td>3.4 Checkpoint DR persistido en el bucket flink-checkpoints</td><td class="pass">PASS</td></tr>
+<tr><td>3.5 Job de prueba DR cancelado correctamente vía REST API</td><td class="pass">PASS</td></tr>
+</table>
+
+<table width="680">
+<tr><th width="420">Verificación — TaskManagers DR (pbigd-proc01-cont/02-cont)</th><th>Resultado</th></tr>
+<tr><td>2.1 Plugin S3 + configuración presentes (2/2 nodos, umbral DR ≥1)</td><td class="na">MANUAL — confirmado por el operador</td></tr>
+</table>
+<p class="small">Total (según resumen del propio script): 15 checks / 14 PASS / 0 FAIL / 1 WARN, sobre el nodo
+JobManager DR pbigd-plat-apps01-cont. La verificación de TaskManagers DR (módulo 2) es manual por diseño del
+script; el umbral de aceptación en DR es ≥1 TaskManager operativo, dado el dimensionamiento reducido.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>config.yaml DR con permisos 777 y credenciales S3 en texto plano</td>
+<td>Módulo 1.9: <code>config.yaml DR tiene permisos 777 (legible por 'otros') y contiene credenciales en texto
+plano</code>. A diferencia de Principal (755, solo lectura por otros), en DR el archivo es además
+<b>escribible</b> por cualquier usuario del sistema — cualquier proceso o usuario local podría modificar la
+configuración de checkpoints/credenciales del JobManager DR. Es el mismo tipo de hallazgo que en Principal, con
+severidad mayor.</td>
+<td><b>Restringir permisos de <code>config.yaml</code> en el JobManager DR a <code>600</code> con prioridad
+sobre el mismo trabajo en Principal, dado que 777 permite escritura no autorizada. Evaluar migrar las
+credenciales a Podman secrets.</b></td></tr>
+</table>
+
+<table width="680"><tr><td class="drcell"><b>Nota — severidad diferenciada del WARN de permisos entre entornos</b><br>
+El hallazgo de permisos laxos en <code>config.yaml</code> aparece en ambos entornos (Principal: 755, DR: 777),
+pero en DR el archivo también es escribible por "otros", no solo legible. Ambos casos se reportan como WARN por
+el script de validación, pero este informe eleva la prioridad de remediación del caso DR (777) sobre el de
+Principal (755) dado el mayor riesgo de manipulación no autorizada de la configuración.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Prerrequisitos de integración (bucket, plugin, configuración) en DR</h2>
+<p>El JobManager DR alcanza el endpoint de MinIO DR y el bucket <code>flink-checkpoints</code> responde
+correctamente. El plugin S3 está presente y la configuración de checkpoints/savepoints apunta al bucket
+correcto vía <code>s3://</code>. A diferencia de Principal (donde el nombre corto <code>itaca</code> resolvía a
+la misma IP que la VIP esperada pero con nombre distinto), en DR el <code>s3.endpoint</code>
+(<code>http://itaca:9000</code>) coincide exactamente con el VIP/DNS pasado al script — sin discrepancia de
+nombre.</p>
+
+<h2 class="sub">4.2 Configuración de acceso S3 y exposición de credenciales (severidad elevada en DR)</h2>
+<p><code>path.style.access</code> está habilitado explícitamente y las credenciales S3 están presentes en
+<code>config.yaml</code> DR, pero con permisos 777 — más laxo que en Principal (755) — lo que además del riesgo
+de lectura no autorizada agrega riesgo de escritura no autorizada. Ver hallazgo §3, con acción obligatoria y
+prioridad elevada frente al mismo hallazgo en Principal.</p>
+
+<h2 class="sub">4.3 Integración funcional real y capacidad reducida del DR</h2>
+<p>El script generó y sometió un job Flink SQL de prueba en DR, con una espera ampliada respecto a Principal (20s
+en vez de 15s para RUNNING, y hasta 120s en vez de 90s para el checkpoint), reconociendo explícitamente los
+recursos más limitados del DR. El job alcanzó RUNNING (<code>job id:
+eeb1b77ba92381b9fa6f3000a539ab35</code>) y el checkpoint se confirmó <code>COMPLETED</code> con persistencia real
+en <code>s3://flink-checkpoints/checkpoints/eeb1b77b.../chk-1</code>. El intervalo de checkpoint configurado
+(60000 ms) se mantiene igual que en Principal, lo cual el propio script destaca como adecuado para minimizar
+pérdida de datos ante un failover DR. El job de prueba se canceló limpiamente. La capacidad reducida de
+TaskManagers (2 en vez de 3) fue confirmada manualmente por el operador con un umbral de aceptación ≥1, acorde al
+dimensionamiento esperado de un DR.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<ol>
+<li>Restringir permisos de <code>config.yaml</code> en el JobManager DR (<code>pbigd-plat-apps01-cont</code>) a
+<code>600</code>, con prioridad sobre el mismo trabajo en Principal por tratarse de un archivo actualmente
+escribible por "otros" (777).</li>
+</ol>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Evaluar migrar <code>s3.access-key</code>/<code>s3.secret-key</code> DR a Podman secrets o a un gestor de
+secretos externo.</li>
+<li>Confirmar de forma automatizada (no solo manual) el plugin S3 y la configuración en los 2 TaskManagers DR.</li>
+<li>Documentar formalmente el umbral de aceptación reducido (≥1 TaskManager) como parte del runbook de DR, para
+que quede claro que no es un defecto sino una decisión de dimensionamiento.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Ninguna acción opcional adicional identificada para este componente en DR.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>La integración funcional Flink → MinIO del entorno DR está operativa, con el mismo flujo de checkpointing de
+punta a punta verificado exitosamente (RUNNING → checkpoint COMPLETED → persistencia real en el bucket DR), sin
+ninguna falla (FAIL), y con capacidad reducida (2 TaskManagers) reconocida y aceptada explícitamente por el
+propio diseño del script de validación DR.</p>
+
+<p>El único hallazgo registrado es de seguridad y replica el mismo tipo de problema detectado en Principal, pero
+con severidad mayor: permisos 777 en <code>config.yaml</code> (legible y escribible por "otros"), frente a 755
+en Principal. No se identificaron contradicciones entre módulos del log ni defectos del script de validación.</p>
+
+<p><b>La integración Flink → MinIO DR se considera apta para producción una vez restringidos los permisos de
+config.yaml a 600, con prioridad sobre el mismo pendiente en Principal dado el mayor riesgo del permiso 777; el
+resto de la validación funcional no presenta objeciones.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 14 de agosto de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Integración Flink→MinIO DR - Página 1</div>
+
+</body></html>

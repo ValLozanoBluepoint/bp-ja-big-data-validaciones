@@ -1,0 +1,230 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Gravitino (Iceberg REST Catalog)       ║
+║   Fecha     : 2026-08-14 16:18:02                          ║
+║   Gravitino : 1.2.1                                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS y prerequisitos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Sistema operativo detectado: Rocky Linux 10.2
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP (chrony) sincronizado
+  [OK]  Linger habilitado para admapl
+  [INFO] Versión Gravitino detectada en contenedor (mejor esfuerzo): unknown
+  [INFO] La versión definitiva se confirma vía REST API en MÓDULO 3 (/api/version)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Servicio y redundancia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor Gravitino corriendo: Up 2 weeks
+  [OK]  Contenedor Gravitino corre como UID 0 dentro del namespace, pero host rootless sin --privileged ni CapAdd — sin privilegio real (mapeado a usuario sin privilegios del host)
+  [OK]  Servicio de usuario activo: gravitino (systemctl --user, sesión propia de admapl)
+  [INFO] Instancias de Gravitino detectadas en este nodo: 1 (gravitino)
+  [OK]  Al menos 1 instancia desplegada (mínimo exigido por el plan)
+  [WARN] Solo 1 instancia desplegada — el plan recomienda 2 para redundancia (no bloqueante, mínimo cumplido)
+  [OK]  Puerto 8090 escuchando → Gravitino REST API
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Validación funcional básica
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Consultando REST API: http://pbigd-plat-apps01:8090
+  [OK]  REST API responde: http://pbigd-plat-apps01:8090/api/version
+  [INFO] Versión Gravitino API: 1.1.0 (referencia documental: 1.2.1 — solo informativo, no es un mínimo bloqueante)
+  [OK]  Endpoint /api/metalakes responde
+  [INFO]   Metalakes existentes: 0
+  [INFO] Ciclo de prueba: crear y eliminar metalake 'bluepoint_validacion_test' vía API REST
+  [OK]  Metalake de prueba creado: bluepoint_validacion_test (HTTP 200)
+  [OK]  Metalake de prueba eliminado correctamente: bluepoint_validacion_test (HTTP 200)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Logs y observabilidad
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Sin errores críticos en los últimos 100 logs de Gravitino
+  [OK]  node-exporter embebido en Alloy activo (puerto 17935)
+  [OK]  API de componentes de Alloy responde (:17935/api/v0/web/components)
+  [OK]  Componente prometheus.exporter.unix: healthy (recolectando métricas de host)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Recursos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] CPU disponibles: 4
+  [INFO] RAM total: 15Gi
+  [INFO] Contrastar contra el dimensionamiento del plan de implementación (platform-apps-1: 4 vCPU / 16 GB, compartido con Flink JM + Trino Coordinator + Redis)
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Gravitino PRINCIPAL                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 18                                                 ║
+║   PASS          : 17                                                 ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 1                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_gravitino_principal_20260814_161802.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Validación completada SIN fallos críticos
+[admapl@pbigd-plat-apps01 ~]$ ^C
+[admapl@pbigd-plat-apps01 ~]$ bash ./ validate_trino_principal.sh
+./: ./: Is a directory
+[admapl@pbigd-plat-apps01 ~]$ bash ./validate_trino_principal.sh
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Trino Cluster PRINCIPAL                ║
+║   Fecha : 2026-08-14 16:18:48                              ║
+║   Trino : 481  ·  Java : JDK 25 (mín. 25.0.1)          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS, Java y prerequisitos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Sistema operativo detectado: Rocky Linux 10.2
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP (chrony) sincronizado
+  [OK]  Linger habilitado para admapl
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Topología del clúster
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Nodo identificado como Coordinator (pbigd-plat-apps01)
+There were too many logins for 'admapl'.
+  [OK]  Contenedor Coordinator corriendo: Up 4 days (healthy)
+  [INFO] Java dentro del contenedor Coordinator: 25.0.1
+  [OK]  JDK del contenedor 25.0.1 cumple el mínimo requerido por Trino 481 (25.0.1)
+  [OK]  Contenedor Coordinator corre como usuario no-root: 'trino:trino'
+  [OK]  Servicio de usuario activo: trino
+  [INFO] Este nodo (pbigd-plat-apps01) no es un worker conocido (pbigd-proc01 pbigd-proc02 pbigd-proc03)
+  [OK]  Puerto 8080 escuchando → Trino Coordinator HTTP
+  [INFO] Consultando REST API: http://pbigd-plat-apps01:8080
+  [OK]  REST API responde: http://pbigd-plat-apps01:8080/v1/info
+  [INFO]   Trino versión (API): 479
+  [INFO]   En arranque (starting): False
+  [INFO] Versión Trino desplegada: 479
+  [OK]  Consulta a system.runtime.nodes respondió correctamente
+  [INFO] Nodos totales reportados por el coordinator (incluye coordinator): 4
+  [OK]  Nodos registrados en el cluster: 4 (≥4 esperado: 1 coordinator + 3 workers)
+  [OK]  Nodo pbigd-proc01 alcanzable (ping OK)
+  [OK]    ↳ Puerto 8080 accesible en pbigd-proc01
+  [OK]  Nodo pbigd-proc02 alcanzable (ping OK)
+  [OK]    ↳ Puerto 8080 accesible en pbigd-proc02
+  [OK]  Nodo pbigd-proc03 alcanzable (ping OK)
+  [OK]    ↳ Puerto 8080 accesible en pbigd-proc03
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Validación funcional básica
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Query trivial 'SELECT 1' aceptada por el coordinator (queryId=20260814_211849_00037_sc585)
+  [OK]  'SHOW CATALOGS' aceptado por el coordinator (contenido de catálogos NO validado aquí — ver validacion_trino_minio/validacion_trino_gravitino)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Logs y observabilidad
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Sin errores críticos en los últimos 100 logs del Coordinator
+  [OK]  node-exporter embebido en Alloy activo (puerto 17935)
+  [OK]  API de componentes de Alloy responde (:17935/api/v0/web/components)
+  [OK]  Componente prometheus.exporter.unix: healthy (recolectando métricas de host)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Recursos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] CPU disponibles: 4
+  [INFO] RAM total: 15Gi
+  [INFO] Contrastar contra el dimensionamiento del plan de implementación (platform-apps-1 / cmp-1..3)
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Trino Cluster PRINCIPAL                             ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 24                                                 ║
+║   PASS          : 24                                                 ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 0                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_trino_principal_20260814_161848.log  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Validación completada SIN fallos críticos
+
+  ▶ Ejecutar también en los nodos worker restantes:
+     pbigd-proc01
+     pbigd-proc02
+     pbigd-proc03
+
+[admapl@pbigd-plat-apps01 ~]$ vi validate_gravitino_principal.sh
+[admapl@pbigd-plat-apps01 ~]$ bash ./validate_gravitino_principal.sh
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Validación Gravitino (Iceberg REST Catalog)       ║
+║   Fecha     : 2026-08-14 16:19:17                          ║
+║   Gravitino : 1.2.1                                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · OS y prerequisitos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Sistema operativo detectado: Rocky Linux 10.2
+  [OK]  Rocky Linux 10.x confirmado
+  [OK]  Podman disponible: v5.8.2
+  [OK]  NTP (chrony) sincronizado
+  [OK]  Linger habilitado para admapl
+  [INFO] Versión Gravitino detectada en contenedor (mejor esfuerzo): unknown
+  [INFO] La versión definitiva se confirma vía REST API en MÓDULO 3 (/api/version)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Servicio y redundancia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor Gravitino corriendo: Up 2 weeks
+  [OK]  Contenedor Gravitino corre como UID 0 dentro del namespace, pero host rootless sin --privileged ni CapAdd — sin privilegio real (mapeado a usuario sin privilegios del host)
+  [OK]  Servicio de usuario activo: gravitino (systemctl --user, sesión propia de admapl)
+  [INFO] Instancias de Gravitino detectadas en este nodo: 1 (gravitino)
+  [OK]  Al menos 1 instancia desplegada (mínimo exigido por el plan)
+  [WARN] Solo 1 instancia desplegada — el plan recomienda 2 para redundancia (no bloqueante, mínimo cumplido)
+  [OK]  Puerto 8090 escuchando → Gravitino REST API
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Validación funcional básica
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Consultando REST API: http://pbigd-plat-apps01:8090
+  [OK]  REST API responde: http://pbigd-plat-apps01:8090/api/version
+  [INFO] Versión Gravitino API: 1.1.0 (referencia documental: 1.2.1 — solo informativo, no es un mínimo bloqueante)
+  [OK]  Endpoint /api/metalakes responde
+  [INFO]   Metalakes existentes: 0
+  [INFO] Ciclo de prueba: crear y eliminar metalake 'bluepoint_validacion_test' vía API REST
+  [OK]  Metalake de prueba creado: bluepoint_validacion_test (HTTP 200)
+  [OK]  Metalake de prueba eliminado correctamente: bluepoint_validacion_test (HTTP 200)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · Logs y observabilidad
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Sin errores críticos en los últimos 100 logs de Gravitino
+  [OK]  node-exporter embebido en Alloy activo (puerto 17935)
+  [OK]  API de componentes de Alloy responde (:17935/api/v0/web/components)
+  [OK]  Componente prometheus.exporter.unix: healthy (recolectando métricas de host)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 5 · Recursos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] CPU disponibles: 4
+  [INFO] RAM total: 15Gi
+  [INFO] Contrastar contra el dimensionamiento del plan de implementación (platform-apps-1: 4 vCPU / 16 GB, compartido con Flink JM + Trino Coordinator + Redis)
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Gravitino PRINCIPAL                                 ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 18                                                 ║
+║   PASS          : 17                                                 ║
+║   FAIL          : 0                                                  ║
+║   WARN          : 1                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_gravitino_principal_20260814_161917.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✔  Validación completada SIN fallos críticos

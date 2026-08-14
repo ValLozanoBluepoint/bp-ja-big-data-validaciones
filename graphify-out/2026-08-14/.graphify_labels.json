@@ -31,8 +31,5 @@
   "29": "Guía de Validación — Cluster MinIO",
   "30": "Guía de validación — Gravitino (Iceberg REST Catalog)",
   "31": "validate_gravitino_principal.sh",
-  "32": "validate_trino_principal.sh",
-  "33": "Guía de preparación — Validación de integración Trino → MinIO/AIStor (lectura/escritura de datos Iceberg)",
-  "34": "validate_trino_minio_principal.sh",
-  "35": "Guía de pasos manuales — Integración Trino → MinIO/AIStor (datos Iceberg)"
+  "32": "validate_trino_principal.sh"
 }

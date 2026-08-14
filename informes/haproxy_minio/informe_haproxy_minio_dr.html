@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación HAProxy+Keepalived DR</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-fail{background:#fce8e8;color:#a3201f;font-weight:bold;padding:3px 8px;border:1px solid #d43f3f;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+.drcell{background:#fdf3e3;border:1px solid #e08a1e;padding:6px 10px;}
+.drcell b{color:#a35c00;}
+.warnboxcell{background:#fbe4e4;border:2px solid #d43f3f;padding:6px 10px;}
+.warnboxcell b{color:#a3201f;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>HAProxy + Keepalived — Capa de acceso único (VIP) delante de MinIO</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>DR — Datacenter Alterno</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-stg01-cont</code> · <code>pbigd-stg02-cont</code> ·
+<code>pbigd-stg03-cont</code> (mismo rol esperado: HAProxy + Keepalived co-ubicado con MinIO DR)</td></tr>
+<tr><td class="lbl">VIP / DNS</td><td>172.17.210.182 · <code>itaca.jardinazuayo.fin.ec</code> (resolución DR)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>HAProxy 2.8.6 (docker.io/library/haproxy:2.8.6) + Keepalived (VRRP)</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Podman rootless (red <code>pasta</code>), systemd/Quadlet (usuario <code>admapl</code>), Keepalived como proceso root del host</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>12 de agosto de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-fail">✖ NO APTO / RECHAZADO</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó la capa HAProxy + Keepalived del entorno DR (Datacenter Alterno) el 12 de agosto de 2026, mediante
+el script <code>validate_haproxy_minio_dr.sh</code> ejecutado de forma independiente en los 3 nodos del clúster
+MinIO DR (<code>pbigd-stg01-cont</code>, <code>pbigd-stg02-cont</code>, <code>pbigd-stg03-cont</code>), cubriendo
+los mismos 6 módulos de verificación que en Principal, con un total de 70 puntos de control repartidos de forma
+desigual entre nodos por las razones que se explican a continuación.</p>
+
+<p>El patrón observado es idéntico al del entorno Principal: <code>pbigd-stg01-cont</code> y
+<code>pbigd-stg02-cont</code> tienen HAProxy y Keepalived correctamente desplegados, con la VIP 172.17.210.182
+activa en stg01-cont (MASTER) y stg02-cont en estado BACKUP, y tráfico real hacia la VIP (S3 y Consola)
+respondiendo HTTP 200. <code>pbigd-stg03-cont</code> no tiene la capa desplegada en absoluto — mismos 4 hallazgos
+FAIL que su contraparte en Principal (sin contenedor HAProxy, sin proceso/unidad Keepalived, sin
+<code>keepalived.conf</code>). Esta repetición exacta del mismo patrón en ambos entornos confirma que se trata de
+un despliegue real incompleto en el tercer nodo (una brecha de implementación pendiente en los 2 datacenters),
+no de una falla puntual de un solo entorno.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">46</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">5</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">4</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Los 3 nodos comparten el mismo rol esperado. stg01-cont y stg02-cont son homogéneos entre sí (con la salvedad
+del rol MASTER/BACKUP de la VIP). stg03-cont diverge de forma crítica, en el mismo patrón que en Principal: la
+ausencia total de despliegue en Módulo 1 fuerza la omisión (WARN) de los módulos 2 y 3.</p>
+
+<table width="680">
+<tr><th width="280">Verificación</th><th>pbigd-stg01-cont</th><th>pbigd-stg02-cont</th><th>pbigd-stg03-cont</th></tr>
+<tr><td>1.1 Contenedor HAProxy corriendo (podman ps)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="fail">FAIL</td></tr>
+<tr><td>1.2 Usuario del proceso HAProxy no-root</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>1.3 Unidad systemd/Quadlet HAProxy (--user)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (no encontrada)</td></tr>
+<tr><td>1.4 Proceso keepalived corriendo (host, root)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="fail">FAIL</td></tr>
+<tr><td>1.5 Unidad systemd keepalived.service (host)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="fail">FAIL</td></tr>
+<tr><td>1.6 Cruce: sin despliegue duplicado/inconsistente</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>2.1 Frontends separados 9000 (S3) / 9001 (Consola)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>2.2 Backend lista los 3 nodos MinIO DR</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>2.3 Health check aplicativo (no solo TCP)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>2.4 Exposición real solo en la VIP (podman port)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>3.1 Sin límites de tamaño de cuerpo forzados</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="warn">WARN (omitido)</td></tr>
+<tr><td>3.2 Objeto grande funcional</td><td class="na">INFO (omitido --skip-big-object)</td><td class="na">INFO (omitido --skip-big-object)</td><td class="na">INFO (omitido --skip-big-object)</td></tr>
+<tr><td>4.1 VIP presente en la interfaz local</td><td class="pass">PASS (MASTER)</td><td class="na">INFO (no está — BACKUP, esperado)</td><td class="na">INFO (no está — sin rol VRRP)</td></tr>
+<tr><td>4.2 Estado VRRP en journal de keepalived</td><td class="na">MANUAL (journald restringido)</td><td class="na">MANUAL (journald restringido)</td><td class="na">MANUAL (sin proceso que consultar)</td></tr>
+<tr><td>4.3 Tráfico real contra la VIP (S3 + Consola)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>4.4 Failover real (VIP migra a BACKUP)</td><td class="na">MANUAL</td><td class="na">MANUAL</td><td class="na">MANUAL</td></tr>
+<tr><td>4.5 Resolución DNS interna de la VIP</td><td class="pass">PASS*</td><td class="pass">PASS</td><td class="pass">PASS</td></tr>
+<tr><td>5.1 keepalived.conf legible (VIP/interfaz/priority)</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="fail">FAIL</td></tr>
+<tr><td>5.2 Bloque de autenticación VRRP presente</td><td class="pass">PASS</td><td class="pass">PASS</td><td class="na">N/A (config inexistente)</td></tr>
+<tr><td>6.1 IP reservada para la VIP (vCenter/ESXi)</td><td class="na">MANUAL</td><td class="na">MANUAL</td><td class="na">MANUAL</td></tr>
+<tr><td>6.2 Forged Transmits en Accept (vSwitch)</td><td class="na">MANUAL</td><td class="na">MANUAL</td><td class="na">MANUAL</td></tr>
+<tr><td>6.3 Regla de anti-afinidad DRS entre los 3 nodos</td><td class="na">MANUAL</td><td class="na">MANUAL</td><td class="na">MANUAL</td></tr>
+</table>
+<p class="small">Total por nodo (según la corrida final/autoritativa de cada script — ver nota* sobre
+stg01-cont): stg01-cont 26 checks / 21 PASS / 0 FAIL / 0 WARN / 5 MANUAL · stg02-cont 25 / 20 / 0 / 0 / 5 MANUAL ·
+stg03-cont 19 / 5 / 4 FAIL / 5 WARN / 5 MANUAL. Suma total: 70 checks / 46 PASS / 4 FAIL / 5 WARN.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="fail">FAIL</td><td>HAProxy + Keepalived ausente por completo en pbigd-stg03-cont</td>
+<td>Módulo 1: <code>podman ps</code> no encuentra contenedor <code>haproxy</code>; no hay proceso
+<code>keepalived</code>; no existe unidad systemd <code>keepalived.service</code>; Módulo 5:
+<code>/etc/keepalived/keepalived.conf</code> no existe en el nodo. Idéntico a stg03 en Principal — mismo patrón
+exacto en los 2 entornos, lo que descarta que sea un error puntual de una sola corrida.</td>
+<td><b>Desplegar HAProxy y Keepalived en pbigd-stg03-cont replicando la configuración de stg01-cont/stg02-cont
+(VIP 172.17.210.182, interfaz <code>ens34</code>), en paralelo al mismo trabajo pendiente en Principal.</b></td></tr>
+<tr><td class="warn">WARN</td><td>Módulos 2 y 3 omitidos en pbigd-stg03-cont (dependientes de HAProxy)</td>
+<td>Consecuencia directa del FAIL de Módulo 1 — no son hallazgos independientes.</td>
+<td>Se resuelven al completar el despliegue en stg03-cont; re-ejecutar el script tras el despliegue.</td></tr>
+<tr><td class="na">INFO</td><td>Corrida repetida en pbigd-stg01-cont por falta del flag <code>--dns</code></td>
+<td>El log de stg01-cont contiene 2 corridas consecutivas del script. La primera (12:19:17) se ejecutó sin el
+flag <code>--dns</code>, por lo que el check 4.5 quedó en WARN ("omitido — no se pasó --dns"). El operador
+relanzó el script 5 minutos después (12:24:15) con
+<code>--vip 172.17.210.182 --dns itaca.jardinazuayo.fin.ec --skip-big-object</code>, obteniendo 26/21/0/0/5 MANUAL
+sin WARN. Es una nota operativa de cómo se invocó el script, no un defecto de la herramienta ni un hallazgo de
+infraestructura.</td>
+<td>Ninguna acción sobre infraestructura. Se usa la segunda corrida (con <code>--dns</code>) como resultado
+autoritativo para este informe, marcado con * en la matriz.</td></tr>
+</table>
+
+<table width="680"><tr><td class="drcell"><b>Nota — corrida duplicada en pbigd-stg01-cont</b><br>
+El archivo de log de stg01-cont contiene 2 ejecuciones completas del script de validación en un lapso de 5
+minutos, la primera sin el argumento <code>--dns</code> (generando un WARN evitable en el check 4.5) y la
+segunda con todos los argumentos correctos. Este informe reporta la matriz y los conteos de la segunda corrida,
+que es la representativa del estado real del nodo con la invocación correcta del script.</td></tr></table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Despliegue y topología</h2>
+<p>stg01-cont y stg02-cont ejecutan HAProxy 2.8.6 en contenedor Podman rootless bajo usuario no-root, con
+Keepalived como proceso root del host y ambas unidades systemd activas y habilitadas — mismo patrón que
+Principal, con recursos de nodo reducidos (2 vCPU / 5.5Gi RAM en DR vs. 4 vCPU / 7.5Gi en Principal, consistente
+con el dimensionamiento reducido esperado de un DR). stg03-cont no tiene ninguno de los 2 componentes desplegados,
+replicando exactamente la brecha de stg03 en Principal.</p>
+
+<h2 class="sub">4.2 Ruteo y separación de tráfico</h2>
+<p>En stg01-cont/stg02-cont, los frontends 9000/9001 están separados, el backend lista los 3 nodos MinIO DR, y el
+health check usa el endpoint nativo de MinIO (<code>Host: minio-dr</code>). La exposición vía <code>podman
+port</code> confirma que solo la VIP DR (172.17.210.182) queda expuesta para 9000/9001, igual que en Principal.</p>
+
+<h2 class="sub">4.3 Objetos grandes (buffering)</h2>
+<p>Sin reglas explícitas de límite de tamaño de cuerpo y mismos timeouts que Principal. La prueba funcional de
+objeto grande fue omitida (<code>--skip-big-object</code>) en los 3 nodos.</p>
+
+<h2 class="sub">4.4 Alta disponibilidad real (VIP / failover) y capacidad de DR</h2>
+<p>La VIP DR (172.17.210.182) está activa en stg01-cont (MASTER) y stg02-cont responde como BACKUP. El tráfico
+real contra la VIP (S3 y Consola) responde HTTP 200 desde los 3 nodos. Al igual que en Principal, el failover
+VRRP funciona hoy con solo 2 de los 3 nodos del clúster MinIO DR, lo que reduce el margen de redundancia del DR
+justo en el escenario donde más importa: si stg01-cont y stg02-cont fallan simultáneamente (o requieren
+mantenimiento coordinado), no hay un tercer nodo Keepalived que asuma el rol. La prueba de failover real sigue
+pendiente de ejecución manual en los 3 nodos.</p>
+
+<h2 class="sub">4.5 Configuración de Keepalived y prerrequisitos de virtualización</h2>
+<p><code>keepalived.conf</code> es legible en stg01-cont (priority 110, MASTER) y stg02-cont (priority 100,
+BACKUP), con bloque de autenticación VRRP presente en ambos — mismo esquema que Principal. Los 3 prerrequisitos
+de virtualización quedan pendientes de verificación manual con el equipo de vCenter/ESXi del DR.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<ol>
+<li>Desplegar HAProxy (contenedor 2.8.6 + unidad systemd/Quadlet --user, usuario no-root) en
+<code>pbigd-stg03-cont</code>, replicando la configuración de stg01-cont/stg02-cont.</li>
+<li>Desplegar Keepalived en <code>pbigd-stg03-cont</code>: proceso root del host, unidad systemd habilitada, y
+<code>/etc/keepalived/keepalived.conf</code> con VIP 172.17.210.182, interfaz <code>ens34</code> y priority
+menor a la de stg01-cont (110).</li>
+<li>Re-ejecutar <code>validate_haproxy_minio_dr.sh</code> en pbigd-stg03-cont tras el despliegue y confirmar
+0 FAIL. Coordinar este trabajo con el mismo pendiente en Principal (§5 del informe Principal), ya que ambos
+entornos comparten la misma brecha.</li>
+</ol>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Ejecutar la prueba de failover real en el DR una vez desplegado stg03-cont, en ventana de mantenimiento.</li>
+<li>Completar los 3 prerrequisitos de virtualización del DR con el equipo de vCenter/ESXi.</li>
+<li>Repetir la prueba de objeto grande sin <code>--skip-big-object</code> en los 3 nodos DR.</li>
+<li>Estandarizar la invocación del script con todos los flags (<code>--vip</code>, <code>--dns</code>,
+<code>--skip-big-object</code> según corresponda) para evitar corridas parciales como la primera de
+stg01-cont.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Evaluar exponer el journal de keepalived a un usuario de solo lectura para eliminar los MANUAL de journald
+restringido en el check 4.2, presentes en los 3 nodos DR.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>La capa HAProxy + Keepalived del entorno DR reproduce exactamente el mismo estado que Principal: 2 de 3 nodos
+(stg01-cont, stg02-cont) están correctamente desplegados y funcionales, con VIP activa, failover Master/Backup
+operando y tráfico real verificado. El tercer nodo, pbigd-stg03-cont, no tiene la capa desplegada — 4 fallas
+reales de infraestructura, idénticas en tipo y ubicación a las de stg03 en Principal.</p>
+
+<p>Se documentó una corrida duplicada en pbigd-stg01-cont (primera sin <code>--dns</code>, segunda completa),
+tratada como nota operativa y no como hallazgo, usando la corrida completa como base del informe. No se
+detectaron defectos del script de validación ni contradicciones sin resolver dentro de los logs.</p>
+
+<p><b>El componente HAProxy + Keepalived DR se considera NO APTO hasta completar el despliegue en
+pbigd-stg03-cont con la misma configuración usada en stg01-cont y stg02-cont, en paralelo al trabajo pendiente
+equivalente en Principal, y confirmar 0 FAIL en una nueva corrida del script de validación.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 14 de agosto de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación HAProxy+Keepalived DR - Página 1</div>
+
+</body></html>

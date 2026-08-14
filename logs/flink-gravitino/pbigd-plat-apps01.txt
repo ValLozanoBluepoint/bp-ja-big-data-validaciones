@@ -1,0 +1,69 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Flink ↔ Gravitino — PRINCIPAL          ║
+║   Fecha : 2026-08-14 17:18:52                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución    : pbigd-plat-apps01
+  [INFO] Gravitino            : pbigd-plat-apps01 (http://pbigd-plat-apps01:8090, Iceberg REST: http://pbigd-plat-apps01:9001)
+  [INFO] JobManager Flink     : pbigd-plat-apps01 (http://pbigd-plat-apps01:8081)
+
+  Nota de alcance: este script asume que validate_flink_principal.sh y
+  validate_gravitino_principal.sh ya se ejecutaron. Aquí solo se valida
+  la conexión de metadata Flink → Gravitino, de forma standalone y sin
+  pasar por Trino (ver validacion_trino_gravitino/ para esa integración).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Conectividad base Flink → Gravitino
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor JobManager local corriendo: Up 43 hours
+Up 43 hours
+  [OK]  Gravitino REST API responde desde pbigd-plat-apps01: http://pbigd-plat-apps01:8090/api/version
+  [OK]  Iceberg REST Catalog de Gravitino responde con config JSON válido: http://pbigd-plat-apps01:9001/iceberg/v1/config
+  [OK]  JAR iceberg-flink-runtime encontrado en el JobManager: /opt/flink/lib/iceberg-flink-runtime-2.1-1.11.0.jar
+  [INFO] Gravitino detectado con 1 instancia(s) — sin escenario de HA que validar
+  [INFO] Sin referencia a Gravitino/rest-catalog en /opt/flink/conf/*.yaml dentro del JobManager — esperado: el catálogo de Flink se define vía CREATE CATALOG en el SQL de sesión (Módulo 2), no en la config estática
+  [FAIL] Warehouse de Gravitino NO apunta a S3/AIStor: '/tmp' (catalog-backend='memory') en gravitino-iceberg-rest-server.conf de 'gravitino' — un PASS del Módulo 2 de este script NO es evidencia de integración con AIStor: Flink estaría escribiendo/leyendo contra almacenamiento local efímero del contenedor Gravitino. Ver hallazgos_transversales.md en la raíz del repo.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Validación funcional Flink → Gravitino (sin Trino)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Creando catálogo/schema/tabla de prueba desde Flink sobre Gravitino: bluepoint_fg.bluepoint_validacion_fg.tabla_flink_gravitino
+  [FAIL] El sql-client no reportó un Job ID para 'flink_gravitino_1786745934_create' en 15s — error visible en el log: Flink SQL> [ERROR] Could not execute SQL statement. Reason: (ver /tmp/flink_gravitino_1786745934_create_sqlclient.log en pbigd-plat-apps01)
+  [WARN] Lectura de vuelta (2.3), confirmación en Gravitino (2.4) y limpieza (2.5) omitidas: la creación/inserción inicial (2.1/2.2) no terminó FINISHED
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Logs del JobManager de Flink
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [WARN] Se detectaron líneas de error relacionadas al catálogo REST/Gravitino en los últimos 200 logs del JobManager:
+  [WARN]     2026-08-14 22:19:03,736 INFO  org.apache.flink.runtime.executiongraph.ExecutionGraph       [] - Source: Values[1] -> Calc[2] -> IcebergStreamWriter -> IcebergFilesCommitter (1/1) (3ada437f6f17ccba656dde1e51d62f83_cbc357ccb763df2852fee8c4fc7d55f2_0_39) switched from SCHEDULED to FAILED on [unassigned resource].
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] No se genera validate_flink_gravitino_dr.sh en esta entrega. A diferencia de
+  [INFO] validate_trino_gravitino_principal.sh (donde ambos lados estaban sin confirmar
+  [INFO] en DR), aquí hay una asimetría: Flink SÍ tiene DR confirmado desplegado
+  [INFO] (validate_flink_dr.sh documenta JobManager en pbigd-plat-apps01-cont y
+  [INFO] TaskManagers en pbigd-proc01-cont/pbigd-proc02-cont). Gravitino, en cambio,
+  [INFO] sigue como 'PREGUNTA ABIERTA' en validate_gravitino_principal.sh — no aparece
+  [INFO] en la tabla de asignación de recursos del datacenter alterno. Es Gravitino,
+  [INFO] no Flink, el componente que bloquea esta integración en DR.
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Integración Flink ↔ Gravitino · PRINCIPAL            ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 9                                                  ║
+║   PASS          : 4                                                  ║
+║   FAIL          : 2                                                  ║
+║   WARN          : 3                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_flink_gravitino_principal_20260814_171852.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✘  Se detectaron 2 fallos críticos en la integración — revisar log: /tmp/validate_flink_gravitino_principal_20260814_171852.log
+
+  ⚠  ADVERTENCIA: el warehouse de Gravitino ('/tmp') no es S3 — ningún PASS
+     del Módulo 2 de este run es evidencia de integración real con AIStor.

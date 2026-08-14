@@ -1,0 +1,80 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║   BLUEPOINT · Integración Trino ↔ Gravitino — PRINCIPAL          ║
+║   Fecha : 2026-08-14 16:47:59                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+  [INFO] Nodo de ejecución    : pbigd-plat-apps01
+  [INFO] Coordinator Trino    : pbigd-plat-apps01 (http://pbigd-plat-apps01:8080)
+  [INFO] Gravitino            : pbigd-plat-apps01 (http://pbigd-plat-apps01:8090)
+  [INFO] JobManager Flink     : pbigd-plat-apps01 (http://pbigd-plat-apps01:8081)
+
+  Nota de alcance: este script asume que validate_trino_principal.sh y
+  validate_gravitino_principal.sh ya se ejecutaron. Aquí solo se valida
+  la conexión de metadata Trino → Gravitino y, como prueba cruzada, el
+  mismo catálogo visto desde Flink — NO la conexión Trino → AIStor para
+  archivos de datos (ver validacion_trino_minio/).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 1 · Conectividad base Trino → Gravitino
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Contenedor Coordinator local corriendo: Up 4 days (healthy)
+  [OK]  Catálogo Iceberg detectado: 'iceberg' (/etc/trino/catalog/iceberg.properties, connector.name=iceberg)
+  [OK]  iceberg.catalog.type=rest confirmado en 'iceberg' — el catálogo apunta a un servicio REST (Gravitino), no a Hive Metastore/Glue/JDBC
+  [OK]  URI del catálogo REST configurada en Trino (iceberg.rest-catalog.uri): http://host.containers.internal:9001/iceberg/
+  [OK]  Gravitino REST API responde desde pbigd-plat-apps01: http://pbigd-plat-apps01:8090/api/version
+  [OK]  Iceberg REST Catalog de Gravitino responde desde pbigd-plat-apps01: http://pbigd-plat-apps01:9001/iceberg/v1/config
+  [INFO] La URI de Trino (http://host.containers.internal:9001/iceberg/ → 169.254.1.2) no coincide textualmente ni por IP con pbigd-plat-apps01 → 172.17.210.40 — normal si usa el alias 'host.containers.internal' de Podman rootless; el check decisivo es la respuesta funcional de abajo, no esto
+  [OK]  La URI configurada en Trino (http://host.containers.internal:9001/iceberg/) responde como Iceberg REST Catalog válido, consultada desde el propio contenedor de Trino
+  [INFO] Gravitino detectado con 1 instancia(s) — sin escenario de HA que validar contra la URI de Trino
+  [OK]  Trino tiene configurado un mecanismo de autenticación hacia el catálogo REST (claves presentes; valores no inspeccionados)
+  [OK]  Contenedor JobManager local corriendo: Up 42 hours
+Up 42 hours
+  [INFO] Sin referencia a Gravitino/rest-catalog en /opt/flink/conf/*.yaml dentro del JobManager — esperado: el catálogo de Flink se define vía CREATE CATALOG en el SQL de sesión (Módulo 2), no en la config estática
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 2 · Validación funcional cruzada Trino ↔ Gravitino ↔ Flink
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] Creando tabla de prueba desde Flink sobre el catálogo compartido: iceberg.bluepoint_validacion_tg.tabla_flink
+  [OK]  Script SQL copiado al contenedor JobManager
+  [INFO] Esperando a que el sql-client reporte el Job ID de inserción (máx. 15s)...
+  [INFO] Job de inserción enviado: b949cd161599efc9070cbe50665c6a0e — sondeando estado real vía REST de Flink (http://pbigd-plat-apps01:8081, máx. 90s)
+  [WARN] Job Flink de inserción (b949cd161599efc9070cbe50665c6a0e) no llegó a estado terminal en 90s — último estado observado: 'RESTARTING' (puede seguir reiniciando en background, p. ej. por falta de recursos/slots). Revisar manualmente: curl http://pbigd-plat-apps01:8081/jobs/b949cd161599efc9070cbe50665c6a0e
+  [INFO] Consultando desde Trino la tabla creada por Flink: iceberg.bluepoint_validacion_tg.tabla_flink
+  [FAIL] Trino ve la tabla iceberg.bluepoint_validacion_tg.tabla_flink en el catálogo pero devuelve 0 filas — la metadata está registrada en Gravitino pero los datos escritos por Flink no son visibles desde Trino (posible inconsistencia de catálogo, HALLAZGO PRIORITARIO)
+  [INFO] Creando tabla de prueba desde Trino (CTAS): iceberg.bluepoint_validacion_tg.tabla_trino
+  [FAIL] CREATE TABLE desde Trino falló: No factory for location: /tmp/bluepoint_validacion_tg/tabla_trino — revisar si Trino tiene permisos de escritura de metadata en el catálogo compartido
+  [INFO] Limpiando objetos de prueba...
+  [OK]  Tabla de prueba iceberg.bluepoint_validacion_tg.tabla_flink eliminada correctamente
+  [OK]  Tabla de prueba iceberg.bluepoint_validacion_tg.tabla_trino eliminada correctamente
+  [OK]  Schema de prueba bluepoint_validacion_tg eliminado correctamente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 3 · Logs del coordinator de Trino
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [OK]  Sin errores de conexión al catálogo REST/Gravitino en los últimos 200 logs del coordinator
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MÓDULO 4 · DR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [INFO] No se genera validate_trino_gravitino_dr.sh en esta entrega. Se hereda, sin
+  [INFO] re-investigar, la conclusión de validate_trino_principal.sh ('No aplica en
+  [INFO] DR por diseño', pendiente de confirmación en sitio) y de
+  [INFO] validate_gravitino_principal.sh ('PREGUNTA ABIERTA', sin resolver). Ninguno
+  [INFO] de los dos componentes tiene su despliegue en DR confirmado, por lo que
+  [INFO] esta integración tampoco aplica en DR hasta que ambos se aclaren.
+
+╔══════════════════════════════════════════════════════════════════╗
+║   RESUMEN – Integración Trino ↔ Gravitino · PRINCIPAL            ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Nodo evaluado : pbigd-plat-apps01                                  ║
+║   Total checks  : 17                                                 ║
+║   PASS          : 14                                                 ║
+║   FAIL          : 2                                                  ║
+║   WARN          : 1                                                  ║
+╠══════════════════════════════════════════════════════════════════╣
+║   Log guardado  : /tmp/validate_trino_gravitino_principal_20260814_164759.log║
+╚══════════════════════════════════════════════════════════════════╝
+
+  ✘  Se detectaron 2 fallos críticos en la integración — revisar log: /tmp/validate_trino_gravitino_principal_20260814_164759.log
