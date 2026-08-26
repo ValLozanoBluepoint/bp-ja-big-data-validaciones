@@ -1,0 +1,141 @@
+PostgreSQL HA + Patroni + etcd · Clúster Principal (Data Warehouse / Outbox)
+
+  Cooperativa Jardín Azuayo — Proyecto Big Data
+  Cluster: PostgreSQL HA Principal (Data Warehouse / Outbox)
+  Nodo actual: pbigd-dlh01  (rol detectado: pbigd-dlh01 (Postgres/Patroni/etcd + acceso PgBouncer/HAProxy))
+  Fecha/Hora: 2026-08-25 14:36:57 -05
+
+
+══════════════════════════════════════════════════════
+  1. SISTEMA OPERATIVO Y RUNTIME
+══════════════════════════════════════════════════════
+[INFO] 1.1 Verificando sistema operativo...
+[PASS] SO: Rocky Linux — 10.2 (Red Quartz)
+[INFO] 1.2 Versión del kernel...
+[PASS] Kernel: 6.12.0-211.39.1.el10_2.x86_64
+[INFO] 1.3 Verificando Podman...
+[PASS] Podman 5.8.2 instalado (>= 5.x requerido)
+[INFO] 1.4 Verificando systemd...
+[PASS] systemd: running
+[INFO] 1.5 Verificando sincronización NTP (crítico para consenso Raft de etcd)...
+[PASS] NTP sincronizado
+[INFO] 1.6 Verificando recursos del nodo...
+[INFO] Recursos nodo pbigd-dlh01: 4 vCPU / 13 GB RAM
+[PASS] RAM acorde a spec de nodo Postgres completo: 13 GB (spec: 14 GB)
+[PASS] vCPU acordes a spec de nodo Postgres completo: 4 (spec: 4)
+
+══════════════════════════════════════════════════════
+  2. VERSIÓN DE COMPONENTES
+══════════════════════════════════════════════════════
+[PASS] Versión PostgreSQL: 17.10 (compatible con 17.10) — fuente: contenedor: postgres-ha
+[PASS] Versión Patroni: 4.1.4 (compatible con 4.1) — fuente: contenedor: postgres-ha
+[PASS] Versión etcd: 3.5.21 (compatible con 3.5.16) — fuente: contenedor: etcd
+[PASS] Versión HAProxy: 2.8.6 (compatible con 2.8.6) — fuente: contenedor: haproxy
+
+══════════════════════════════════════════════════════
+  3. ESTRUCTURA DE DIRECTORIOS Y PERSISTENCIA
+══════════════════════════════════════════════════════
+[INFO] Verificando /data/postgres/pgdata ...
+[PASS] Directorio /data/postgres/pgdata existe — owner: systemd-oom:systemd-oom — perms: 700 — uso: 2.7G/100G usado (3%)
+[PASS] /data/postgres/pgdata filesystem: xfs (no overlay)
+[INFO] Verificando /data/postgres/etcd ...
+[PASS] Directorio /data/postgres/etcd existe — owner: systemd-oom:systemd-oom — perms: 755 — uso: 2.7G/100G usado (3%)
+[PASS] /data/postgres/etcd filesystem: xfs (no overlay)
+[INFO] Verificando /var/log/postgresql ...
+[PASS] Directorio /var/log/postgresql existe — owner: systemd-oom:systemd-oom — perms: 755 — uso: 1.6G/30G usado (6%)
+[PASS] /var/log/postgresql filesystem: xfs (no overlay)
+
+══════════════════════════════════════════════════════
+  4. SERVICIOS SYSTEMD Y CONTENEDORES PODMAN
+══════════════════════════════════════════════════════
+[INFO] 4.1 Verificando unidades systemd del stack HA (sistema y usuario/Quadlet)...
+[PASS] Unidad systemd (sistema): etcd.service — activa — habilitada: enabled
+[PASS] Unidad systemd (sistema): haproxy.service — activa — habilitada: enabled
+[PASS] Unidad systemd (sistema): keepalived.service — activa — habilitada: enabled
+[PASS] Unidad systemd (sistema): pgbouncer.service — activa — habilitada: enabled
+[PASS] Unidad systemd (sistema): postgres-ha.service — activa — habilitada: enabled
+[INFO] 4.3 Verificando contenedor Podman Postgres/Patroni...
+[PASS] Contenedor: postgres-ha — estado: Up 43 minutes
+
+══════════════════════════════════════════════════════
+  5. CONECTIVIDAD DE RED
+══════════════════════════════════════════════════════
+[INFO] 4.1 Puerto PostgreSQL (5432)...
+[PASS] Puerto 5432 (PostgreSQL) ESCUCHANDO localmente
+[INFO] 4.2 Puerto Patroni REST API (8008)...
+[PASS] Puerto 8008 (Patroni REST API) ESCUCHANDO localmente
+[INFO] 4.3 Puerto PgBouncer (6432)...
+[PASS] Puerto 6432 (PgBouncer) ESCUCHANDO localmente
+[INFO] 4.4 Puerto HAProxy WRITE (15432)...
+[PASS] Puerto 15432 (HAProxy WRITE → líder) ESCUCHANDO localmente
+[INFO] 4.5 Puerto HAProxy READ (15433)...
+[PASS] Puerto 15433 (HAProxy READ → réplicas) ESCUCHANDO localmente
+[INFO] 4.6 Puerto HAProxy Stats UI (18404)...
+[PASS] Puerto 18404 (HAProxy Stats UI) ESCUCHANDO localmente
+[INFO] 4.7 Puerto etcd cliente (2379)...
+[PASS] Puerto 2379 (etcd client) ESCUCHANDO localmente
+[INFO] 4.8 Puerto etcd peer (2380)...
+[PASS] Puerto 2380 (etcd peer) ESCUCHANDO localmente
+[INFO] 4.9 Conectividad entre nodos del clúster (pbigd-dlh01 pbigd-dlh02 pbigd-dlh03)...
+[PASS] Ping a pbigd-dlh02: OK (rtt: 0.273ms)
+[PASS] TCP pbigd-dlh02:2379 (etcd) alcanzable
+[PASS] Ping a pbigd-dlh03: OK (rtt: 0.412ms)
+[PASS] TCP pbigd-dlh03:2379 (etcd) alcanzable
+
+══════════════════════════════════════════════════════
+  6. VALIDACIÓN FUNCIONAL — ETCD Y PATRONI
+══════════════════════════════════════════════════════
+[INFO] 6.1 Verificando salud de etcd (quórum)...
+[PASS] etcd: 3/3 miembros saludables (quórum completo)
+[INFO] 6.2 Verificando estado del clúster vía Patroni REST API (:8008/cluster)...
+[PASS] Patroni REST API responde en :8008
+[INFO] Líder detectado: 1 | Réplicas en streaming: 2
+[PASS] Exactamente un líder Patroni activo (sin split-brain)
+[PASS] Réplicas en streaming: 2 (mínimo requerido: 2)
+[INFO] 6.3 Verificando que el failover automático NO está pausado...
+[PASS] Failover automático de Patroni HABILITADO (pause=false)
+
+══════════════════════════════════════════════════════
+  7. REPLICACIÓN POSTGRESQL
+══════════════════════════════════════════════════════
+[INFO] 6. Verificación de replicación omitida (psql no disponible)
+
+══════════════════════════════════════════════════════
+  8. HAPROXY (VIP) Y PGBOUNCER
+══════════════════════════════════════════════════════
+[INFO] 7.1 Verificando HAProxy stats (:18404)...
+[PASS] HAProxy stats page activa y protegida con autenticación: HTTP 401 (comportamiento esperado)
+[INFO] 7.2 Verificando frontend HAProxy WRITE (:15432)...
+[PASS] HAProxy WRITE (:15432) alcanzable
+[INFO] 7.3 Verificando frontend HAProxy READ (:15433)...
+[PASS] HAProxy READ (:15433) alcanzable
+[INFO] 7.4 Verificando Keepalived (VIP de PgBouncer/HAProxy)...
+[PASS] Keepalived activo en este nodo
+[INFO] 7.5 Verificando PgBouncer (pool de conexiones)...
+[PASS] PgBouncer escuchando en :6432
+[INFO] 7.6 Verificando que PgBouncer no autentica con el superusuario 'postgres'...
+[PASS] PgBouncer usa un usuario de autenticación dedicado (auth_user=pgbouncer_auth), no el superusuario 'postgres'
+
+══════════════════════════════════════════════════════
+  9. RESILIENCIA Y QUÓRUM DEL CLÚSTER
+══════════════════════════════════════════════════════
+[INFO] 8.1 Estado de cada nodo del clúster (TCP etcd client port)...
+[PASS] Nodo pbigd-dlh01: puerto 2379 alcanzable — UP
+[PASS] Nodo pbigd-dlh02: puerto 2379 alcanzable — UP
+[PASS] Nodo pbigd-dlh03: puerto 2379 alcanzable — UP
+[PASS] Nodos del clúster: 3/3 — quórum completo (requerido: 3/3)
+
+══════════════════════════════════════════════════════
+  RESUMEN DE VALIDACIÓN — CLÚSTER PRINCIPAL
+══════════════════════════════════════════════════════
+  Cluster       : PostgreSQL HA Principal (Data Warehouse / Outbox)
+  Nodo          : pbigd-dlh01 (pbigd-dlh01 (Postgres/Patroni/etcd + acceso PgBouncer/HAProxy))
+  Nodos         : pbigd-dlh01 pbigd-dlh02 pbigd-dlh03
+  Nodos UP      : 3/3
+  Fecha         : 2026-08-25 14:36:59 -05
+  Total checks  : 50
+  PASS          : 50
+  FAIL          : 0
+  WARN          : 0
+
+  ✅  VALIDACIÓN COMPLETADA SIN ERRORES NI ADVERTENCIAS

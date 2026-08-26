@@ -1,0 +1,138 @@
+
+  Redis HA + Sentinel · Capa de Serving Principal
+
+  Cooperativa Jardín Azuayo — Proyecto Big Data
+  Cluster: Redis HA Principal (Serving Layer)
+  Nodo actual: pbigd-plat-apps01  (rol detectado: pbigd-plat-apps01)
+  Master monitoreado: redis-master
+  Fecha/Hora: 2026-08-26 15:01:01 -05
+  Nota: Redis mantiene capacidad COMPLETA en DR (sin degradar),
+  es la capa de serving online crítica para saldos y movimientos.
+
+
+══════════════════════════════════════════════════════
+  1. SISTEMA OPERATIVO Y RUNTIME
+══════════════════════════════════════════════════════
+[INFO] 1.1 Verificando sistema operativo...
+[PASS] SO: Rocky Linux — 10.2 (Red Quartz)
+[INFO] 1.2 Versión del kernel...
+[PASS] Kernel: 6.12.0-211.26.1.el10_2.x86_64
+[INFO] 1.3 Verificando Podman...
+[PASS] Podman 5.8.2 instalado (>= 5.x requerido)
+[INFO] 1.4 Verificando systemd...
+[PASS] systemd: running
+[INFO] 1.5 Verificando sincronización NTP (relevante para correlación de eventos de failover Sentinel)...
+[PASS] NTP sincronizado
+[INFO] 1.6 Recursos nodo pbigd-plat-apps01: 4 vCPU / 15 GB RAM
+[PASS] Recursos detectados: 4 vCPU / 15 GB RAM (verificar contra spec del nodo en la tabla de dimensionamiento)
+
+══════════════════════════════════════════════════════
+  2. VERSIÓN DE REDIS Y SENTINEL
+══════════════════════════════════════════════════════
+[INFO] Versión Redis: 8.6.2 — recomendado homologar con 7.4.x
+[INFO] Versión Sentinel: 8.6.2 — recomendado homologar con 7.4.x
+
+══════════════════════════════════════════════════════
+  3. ESTRUCTURA DE DIRECTORIOS Y PERSISTENCIA
+══════════════════════════════════════════════════════
+[INFO] Verificando /data/redis/data (RDB/AOF)...
+[PASS] Directorio /data/redis/data existe — owner: admapl:users — perms: 755 — uso: 18G/100G usado (18%)
+[PASS] /data/redis/data filesystem: xfs (no overlay)
+[INFO] Archivos de persistencia: 2 RDB, 4 AOF
+
+══════════════════════════════════════════════════════
+  4. SERVICIOS SYSTEMD Y CONTENEDORES PODMAN
+══════════════════════════════════════════════════════
+[INFO] 4.1 Verificando unidades systemd de Redis/Sentinel (sistema y usuario/Quadlet)...
+[PASS] Unidad systemd (usuario): redis-sentinel.service — activa — habilitada: enabled
+[PASS] Unidad systemd (usuario): redis.service — activa — habilitada: enabled
+[INFO] 4.2 Verificando linger de systemd para persistencia de servicios de usuario...
+[PASS] Linger habilitado para usuario admapl
+[INFO] 4.3 Verificando contenedor Podman Redis...
+[PASS] Contenedor: redis — estado: Up About an hour
+
+══════════════════════════════════════════════════════
+  5. CONECTIVIDAD DE RED
+══════════════════════════════════════════════════════
+[INFO] 5.1 Puerto Redis (6379)...
+[PASS] Puerto 6379 (Redis) ESCUCHANDO localmente
+[INFO] 5.2 Puerto Sentinel (26379)...
+[PASS] Puerto 26379 (Sentinel) ESCUCHANDO localmente
+[INFO] 5.3 Conectividad entre nodos del clúster (pbigd-plat-apps01 pbigd-bd-plat-apps01 pbigd-plat-obs01)...
+[PASS] Ping a pbigd-bd-plat-apps01: OK (rtt: 0.229ms)
+[PASS] TCP pbigd-bd-plat-apps01:26379 (Sentinel) alcanzable
+[PASS] Ping a pbigd-plat-obs01: OK (rtt: 0.332ms)
+[PASS] TCP pbigd-plat-obs01:26379 (Sentinel) alcanzable
+
+══════════════════════════════════════════════════════
+  6. VALIDACIÓN FUNCIONAL REDIS
+══════════════════════════════════════════════════════
+[INFO] 6.1 Verificando PING a Redis local...
+[PASS] Redis responde PING: PONG
+[INFO] 6.2 Verificando rol y estado de replicación (INFO replication)...
+[INFO] Rol detectado en este nodo: slave
+[PASS] Réplica conectada al master (master_link_status: up)
+[INFO] Offset de replicación — master: 263356100 | slave: 263356100
+[PASS] Réplica sincronizada — sin lag de replicación (offset idéntico)
+[INFO] 6.3 Verificando memoria y política de eviction...
+[INFO] maxmemory: 0 bytes | maxmemory-policy: noeviction
+[INFO] Memoria en uso: 2.04M
+[PASS] Configuración de memoria reportada — validar manualmente contra el spec del nodo
+
+══════════════════════════════════════════════════════
+  7. VALIDACIÓN FUNCIONAL SENTINEL
+══════════════════════════════════════════════════════
+[INFO] 7.1 Verificando PING a Sentinel local...
+[PASS] Sentinel responde PING: PONG
+[INFO] 7.2 Verificando master monitoreado (SENTINEL masters)...
+[PASS] Sentinel monitorea el master 'redis-master'
+[INFO] IP del master reportada por Sentinel: 172.17.210.41 | flags: master
+[PASS] Sentinel confirma el nodo como 'master' (sin down flags: o_down/s_down)
+[INFO] 7.3 Verificando quórum de Sentinels visibles (SENTINEL sentinels)...
+[INFO] Sentinels visibles desde este nodo: 3 (esperado: 3)
+[PASS] Quórum de Sentinels completo: 3/3
+[INFO] 7.4 Verificando quórum de decisión de failover (SENTINEL ckquorum)...
+[PASS] CKQUORUM OK — OK 3 usable Sentinels. Quorum and failover authorization can be reached
+
+══════════════════════════════════════════════════════
+  8. RESILIENCIA Y ESTADO DEL CLÚSTER
+══════════════════════════════════════════════════════
+[INFO] 8.1 Estado de cada nodo del clúster (TCP Sentinel port)...
+[PASS] Nodo pbigd-plat-apps01: puerto 26379 alcanzable — UP
+[PASS] Nodo pbigd-bd-plat-apps01: puerto 26379 alcanzable — UP
+[PASS] Nodo pbigd-plat-obs01: puerto 26379 alcanzable — UP
+[PASS] Nodos del clúster: 3/3 — capacidad completa (requerido: 3/3)
+
+══════════════════════════════════════════════════════
+  9. LOGS Y OBSERVABILIDAD
+══════════════════════════════════════════════════════
+[INFO] 9.1 Verificando logs en /var/log/redis...
+[PASS] Logs en /var/log/redis: 2 archivo(s) — último modificado: 2026-08-26 14:44:04
+[PASS] Sin advertencias de memoria (OOM/maxmemory) en el log más reciente
+[PASS] Sin keys evictadas por presión de memoria (evicted_keys=0)
+[INFO] 9.2 Verificando Grafana Alloy (observabilidad)...
+[PASS] Alloy: alloy.service — activo
+[INFO] 9.3 Verificando node-exporter...
+[WARN] node-exporter: no detectado en puerto 9100
+
+══════════════════════════════════════════════════════
+  RESUMEN DE VALIDACIÓN — CLÚSTER PRINCIPAL
+══════════════════════════════════════════════════════
+  Cluster       : Redis HA Principal (Serving Layer)
+  Nodo          : pbigd-plat-apps01 (pbigd-plat-apps01)
+  Nodos         : pbigd-plat-apps01 pbigd-bd-plat-apps01 pbigd-plat-obs01
+  Nodos UP      : 3/3
+  Master        : redis-master
+  Fecha         : 2026-08-26 15:01:04 -05
+  Total checks  : 36
+  PASS          : 35
+  FAIL          : 0
+  WARN          : 1
+
+  Notas de diseño (Bluepoint):
+  • Redis NO reduce capacidad en DR — mismos recursos y umbrales que Principal
+  • Es la capa de serving online crítica (saldos y movimientos, baja latencia)
+  • Un quórum de Sentinel incompleto (<3/3) se reporta como FALLO, no como advertencia
+
+  ⚠️   VALIDACIÓN COMPLETADA CON 1 ADVERTENCIA(S)
+      Revisar advertencias antes de pasar a producción.

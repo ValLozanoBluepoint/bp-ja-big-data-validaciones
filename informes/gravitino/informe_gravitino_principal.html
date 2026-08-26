@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Informe de validación Gravitino Principal</title>
+<style>
+@page{size:A4;margin:16mm 14mm;}
+body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#1a1a1a;margin:0;padding:0;line-height:1.35;}
+h1.logo{color:#1e3fd8;font-size:26pt;text-align:right;margin:0 0 2mm 0;font-weight:bold;}
+.small{font-size:8.5pt;color:#444;}
+.title{font-size:13pt;font-weight:bold;margin:1mm 0 4mm 0;}
+table{border-collapse:collapse;margin-bottom:5mm;}
+td,th{border:1px solid #ccc;padding:4px 7px;font-size:9pt;text-align:left;vertical-align:middle;}
+.meta td{border:1px solid #d8d8d8;}
+.lbl{background:#1e2a8a;color:#fff;font-weight:bold;width:150px;}
+.pass{color:#fff;text-align:center;font-weight:bold;background:#1f9d55;}
+.warn{color:#fff;text-align:center;font-weight:bold;background:#e08a1e;}
+.fail{color:#fff;text-align:center;font-weight:bold;background:#d43f3f;}
+.na{background:#e9e9e9;color:#777;text-align:center;font-style:italic;}
+.sechead td{background:#1e2a8a;color:#fff;font-size:12pt;font-weight:bold;padding:6px 10px;}
+.cardcell{border:none;text-align:center;padding:10px;background:#f4f4f4;width:220px;}
+.cardnum-g{font-size:22pt;font-weight:bold;color:#1f9d55;}
+.cardnum-o{font-size:22pt;font-weight:bold;color:#e08a1e;}
+.cardnum-r{font-size:22pt;font-weight:bold;color:#d43f3f;}
+.result-warn{background:#fce8cc;color:#a35c00;font-weight:bold;padding:3px 8px;border:1px solid #e08a1e;}
+.result-pass{background:#e3f5e9;color:#166534;font-weight:bold;padding:3px 8px;border:1px solid #1f9d55;}
+h2.sub{font-size:10.5pt;color:#1e2a8a;margin:5mm 0 2mm 0;}
+.note{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;margin-bottom:5mm;}
+.note b{color:#1e2a8a;}
+ol,ul{margin:2mm 0;padding-left:5mm;}
+code{background:#f0f0f0;padding:1px 3px;}
+.pagebreak{page-break-before:always;}
+.footer{font-size:7.5pt;color:#888;margin-top:4mm;}
+.notecell{background:#eef0fb;border:1px solid #1e2a8a;padding:6px 10px;}
+.notecell b{color:#1e2a8a;}
+</style></head>
+<body>
+
+<h1 class="logo">Bluepoint</h1>
+<div class="small">Cooperativa Jardín Azuayo · Proyecto Big Data</div>
+<div class="title">INFORME DE VALIDACIÓN DE IMPLEMENTACIÓN</div>
+
+<table class="meta" width="680">
+<tr><td class="lbl">Componente</td><td>Gravitino (Iceberg REST Catalog)</td></tr>
+<tr><td class="lbl">Clúster / Entorno</td><td>Principal (DC Principal)</td></tr>
+<tr><td class="lbl">Nodos validados</td><td><code>pbigd-plat-apps01</code> (única instancia desplegada)</td></tr>
+<tr><td class="lbl">Versión del software</td><td>Gravitino API 1.1.0 (confirmado vía REST <code>/api/version</code>) — referencia documental 1.2.1</td></tr>
+<tr><td class="lbl">SO / Runtime</td><td>Rocky Linux 10.2 · Podman (contenedor rootless) · systemd --user (usuario <code>admapl</code>)</td></tr>
+<tr><td class="lbl">Fecha de validación</td><td>14 de agosto de 2026</td></tr>
+<tr><td class="lbl">Resultado general</td><td><span class="result-warn">⚠ APROBADO CON OBSERVACIONES</span></td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>1. RESUMEN EJECUTIVO</td></tr></table>
+
+<p>Se validó el servicio Gravitino (Iceberg REST Catalog) del DC Principal el 14 de agosto de 2026,
+mediante el script <code>validate_gravitino_principal.sh</code> ejecutado en el único nodo donde está
+desplegado (<code>pbigd-plat-apps01</code>). El script cubrió 5 dominios de control: OS y prerequisitos,
+servicio y redundancia, validación funcional básica (ciclo completo de creación/eliminación de un metalake
+de prueba vía API REST), logs/observabilidad, y recursos de hardware. El script se ejecutó 2 veces en la
+misma sesión (16:18:02 y 16:19:17), con resultado idéntico en ambas corridas; este informe toma como
+evidencia la corrida más reciente (16:19:17).</p>
+
+<p>El resultado funcional es positivo: la REST API responde, el ciclo de prueba de creación y eliminación
+de un metalake (<code>bluepoint_validacion_test</code>) se completó correctamente (HTTP 200 en ambas
+operaciones), y no hay errores críticos en los logs recientes. El único punto abierto es un WARN real de
+infraestructura: solo hay 1 instancia de Gravitino desplegada, cuando el plan de implementación recomienda 2
+para redundancia. El propio script indica que el mínimo exigido (1 instancia) se cumple, por lo que no es
+bloqueante, pero se documenta como observación pendiente de resolver — ver §3 y §5.</p>
+
+<table width="680"><tr>
+<td class="cardcell"><div class="cardnum-g">17</div>PASS</td>
+<td class="cardcell"><div class="cardnum-o">1</div>WARN</td>
+<td class="cardcell"><div class="cardnum-r">0</div>FAIL</td>
+</tr></table>
+
+<table class="sechead" width="680"><tr><td>2. MATRIZ DE ESTADO POR NODO</td></tr></table>
+
+<p>Gravitino está desplegado en un único nodo (<code>pbigd-plat-apps01</code>), sin distinción de roles —
+se presenta una matriz simple.</p>
+
+<table width="680">
+<tr><th width="480">Verificación</th><th>Resultado</th></tr>
+<tr><td>Rocky Linux 10.x confirmado (10.2)</td><td class="pass">PASS</td></tr>
+<tr><td>Podman disponible (v5.8.2)</td><td class="pass">PASS</td></tr>
+<tr><td>NTP (chrony) sincronizado</td><td class="pass">PASS</td></tr>
+<tr><td>Linger habilitado para admapl</td><td class="pass">PASS</td></tr>
+<tr><td>Contenedor Gravitino corriendo (Up 2 weeks)</td><td class="pass">PASS</td></tr>
+<tr><td>Contenedor corre como UID 0 en namespace, sin privilegio real en el host (rootless, sin --privileged ni CapAdd)</td><td class="pass">PASS</td></tr>
+<tr><td>Servicio de usuario activo (gravitino, systemctl --user)</td><td class="pass">PASS</td></tr>
+<tr><td>Al menos 1 instancia desplegada (mínimo exigido por el plan)</td><td class="pass">PASS</td></tr>
+<tr><td>Solo 1 instancia desplegada — el plan recomienda 2 para redundancia</td><td class="warn">WARN</td></tr>
+<tr><td>Puerto 8090 escuchando (Gravitino REST API)</td><td class="pass">PASS</td></tr>
+<tr><td>REST API responde (<code>/api/version</code>)</td><td class="pass">PASS</td></tr>
+<tr><td>Endpoint <code>/api/metalakes</code> responde</td><td class="pass">PASS</td></tr>
+<tr><td>Metalake de prueba creado (HTTP 200)</td><td class="pass">PASS</td></tr>
+<tr><td>Metalake de prueba eliminado correctamente (HTTP 200)</td><td class="pass">PASS</td></tr>
+<tr><td>Sin errores críticos en los últimos 100 logs de Gravitino</td><td class="pass">PASS</td></tr>
+<tr><td>node-exporter embebido en Alloy activo (puerto 17935)</td><td class="pass">PASS</td></tr>
+<tr><td>API de componentes de Alloy responde</td><td class="pass">PASS</td></tr>
+<tr><td>Componente prometheus.exporter.unix healthy</td><td class="pass">PASS</td></tr>
+</table>
+<p class="small">Resumen del propio script: 18 checks / 17 PASS / 0 FAIL / 1 WARN. CPU: 4 vCPU · RAM: 15Gi
+(nodo compartido con Flink JobManager + Trino Coordinator + Redis). Resultado idéntico en las 2 corridas de
+la sesión (16:18:02 y 16:19:17) — sin contradicciones entre ellas.</p>
+
+<div class="pagebreak"></div>
+
+<table class="sechead" width="680"><tr><td>3. HALLAZGOS Y ACCIONES CORRECTIVAS</td></tr></table>
+
+<table width="680">
+<tr><th width="90">Tipo</th><th width="170">Hallazgo</th><th width="260">Detalle técnico</th><th>Acción requerida</th></tr>
+<tr><td class="warn">WARN</td><td>Instancia única de Gravitino sin redundancia</td>
+<td>Solo 1 instancia de Gravitino desplegada en <code>pbigd-plat-apps01</code> (puerto 8090). El plan de
+implementación recomienda 2 instancias para redundancia; el mínimo exigido (1 instancia) se cumple, por lo
+que el propio script no marca esto como bloqueante.</td>
+<td>Planificar el despliegue de una segunda instancia de Gravitino en otro nodo para cumplir la redundancia
+recomendada por el plan, dentro de una ventana de mantenimiento.</td></tr>
+</table>
+
+<table class="sechead" width="680"><tr><td>4. ANÁLISIS TÉCNICO DESTACADO</td></tr></table>
+
+<h2 class="sub">4.1 Redundancia del servicio</h2>
+<p>La validación confirma explícitamente que el mínimo exigido por el plan (al menos 1 instancia) se
+cumple, pero que el nivel recomendado (2 instancias) no. Esto implica que, ante una falla o mantenimiento
+del único nodo donde corre Gravitino, el catálogo Iceberg vía REST quedaría temporalmente no disponible
+para los consumidores (p. ej. Trino) — riesgo operativo real, aunque no bloqueante para el estado actual de
+la validación.</p>
+
+<h2 class="sub">4.2 Aislamiento de privilegios del contenedor</h2>
+<p>El contenedor de Gravitino corre como UID 0 dentro de su propio namespace, pero el host es rootless y no
+usa <code>--privileged</code> ni <code>CapAdd</code>, por lo que ese UID 0 se mapea a un usuario sin
+privilegios reales del host. Es la misma arquitectura de aislamiento usada en otros componentes Podman del
+proyecto (p. ej. node-exporter embebido en Alloy) y confirma que no hay privilegio real expuesto al sistema
+operativo base.</p>
+
+<h2 class="sub">4.3 Versión de software: discrepancia banner vs. API</h2>
+<p>El banner del script reporta "Gravitino: 1.2.1" como versión de referencia documental, pero la versión
+real confirmada vía REST API (<code>/api/version</code>) es <b>1.1.0</b>. El propio script marca esto como
+solo informativo, no como mínimo bloqueante. La detección de versión por inspección del contenedor (mejor
+esfuerzo) no logró determinarla ("unknown"), por lo que la única fuente confiable es la API — coherente con
+el diseño del script.</p>
+
+<h2 class="sub">4.4 Validación funcional del ciclo de vida de metalakes</h2>
+<p>El ciclo de prueba completo (crear y eliminar un metalake vía API REST) se ejecutó exitosamente, con
+respuesta HTTP 200 en ambas operaciones sobre <code>bluepoint_validacion_test</code>, y sin dejar el
+metalake de prueba como artefacto residual (0 metalakes existentes antes de la prueba, ninguno después de
+la limpieza). Esto confirma que el endpoint de metalakes no solo responde, sino que sostiene operaciones de
+escritura y borrado reales.</p>
+
+<h2 class="sub">4.5 Recursos y colocación en el nodo</h2>
+<p>El nodo <code>pbigd-plat-apps01</code> reporta 4 vCPU y 15Gi de RAM, compartido con Flink JobManager,
+Trino Coordinator y Redis según el propio script señala como contexto de dimensionamiento. Esta colocación
+concentra 4 servicios en un único nodo, lo que refuerza la relevancia del WARN de redundancia en §3: la
+pérdida de este nodo afectaría simultáneamente a Gravitino, al JobManager de Flink y al Coordinator de
+Trino.</p>
+
+<table class="sechead" width="680"><tr><td>5. ACCIONES REQUERIDAS ANTES DE PRODUCCIÓN</td></tr></table>
+
+<p><b>OBLIGATORIA</b></p>
+<p class="small">Ninguna acción obligatoria pendiente — no hay FAIL en este informe y el mínimo de
+instancias exigido por el plan se cumple.</p>
+
+<p><b>RECOMENDADA</b></p>
+<ol>
+<li>Desplegar una segunda instancia de Gravitino en un nodo distinto de <code>pbigd-plat-apps01</code> para
+cumplir la redundancia sugerida por el plan de implementación, dentro de una ventana de mantenimiento.</li>
+</ol>
+
+<p><b>OPCIONAL</b></p>
+<ol>
+<li>Actualizar el banner de <code>validate_gravitino_principal.sh</code> para que refleje la versión real
+detectada por API (1.1.0) en vez del valor de referencia documental "1.2.1", evitando confusión en futuras
+corridas. Es un ajuste del script de validación, no un cambio de infraestructura.</li>
+</ol>
+
+<table class="sechead" width="680"><tr><td>6. CONCLUSIÓN</td></tr></table>
+
+<p>El servicio Gravitino del DC Principal está operativo en su único nodo desplegado: la REST API responde,
+el ciclo de vida de metalakes (creación y eliminación) funciona correctamente vía API, y no hay errores
+críticos en los logs recientes ni fallas registradas en la matriz. El punto abierto es la ausencia de una
+segunda instancia para redundancia, recomendada por el plan de implementación pero no exigida como mínimo;
+dado que el nodo actual también aloja el JobManager de Flink y el Coordinator de Trino, este punto conviene
+planificarse antes de considerar el componente completamente resiliente en producción.</p>
+
+<p><b>Gravitino Principal se aprueba con observaciones: 0 FAIL, 1 WARN real (redundancia de instancia)
+pendiente de planificación, sin impacto en la funcionalidad validada.</b></p>
+
+<table width="680" style="margin-top:6mm">
+<tr><th width="340">Elaborado por</th><th>Revisado por</th></tr>
+<tr><td style="height:18mm;vertical-align:top">Bluepoint AI — Consultoría Big Data</td>
+<td style="vertical-align:top">Equipo de Infraestructura — Cooperativa Jardín Azuayo</td></tr>
+<tr><td>Fecha: 17 de agosto de 2026</td><td>Fecha: ____________________</td></tr>
+</table>
+
+<div class="footer">Informe de validación Gravitino Principal - Página 1</div>
+
+</body></html>

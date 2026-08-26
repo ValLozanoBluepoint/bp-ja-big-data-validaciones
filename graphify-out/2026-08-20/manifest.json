@@ -510,13 +510,13 @@
     "semantic_hash": ""
   },
   "validacion_postgresql/validate_postgresql_dr.sh": {
-    "mtime": 1787253664.2667754,
-    "ast_hash": "e18f719dfe5c1218befd7d913db58433",
+    "mtime": 1787252698.53876,
+    "ast_hash": "48e87aa3030632cd83c28e7193ec0dd2",
     "semantic_hash": ""
   },
   "validacion_postgresql/validate_postgresql_principal.sh": {
-    "mtime": 1787253523.5840595,
-    "ast_hash": "64cfe5aec6d75a50f69195934c8312f5",
+    "mtime": 1787252688.51976,
+    "ast_hash": "278f8df7e46b955ad632ac313b1dfbe0",
     "semantic_hash": ""
   },
   "validacion_redis/validate_redis_dr.sh": {
